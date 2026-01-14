@@ -86,13 +86,4 @@ public class AuthController {
     public ResponseEntity<String> health() {
         return ResponseEntity.ok("OK");
     }
-
-    /**
-     * Global exception handler for this controller
-     */
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<AuthDto.MessageResponse> handleRuntimeException(RuntimeException ex) {
-        log.error("Error occurred during auth request", ex);
-        return ResponseEntity.badRequest().body(new AuthDto.MessageResponse(ex.getMessage()));
-    }
 }

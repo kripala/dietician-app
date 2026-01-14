@@ -52,6 +52,48 @@ export interface MessageResponse {
   message: string;
 }
 
+// User Profile types
+export interface UserProfile {
+  id: number;
+  userId: number;
+  firstName: string | null;
+  middleName: string | null;
+  lastName: string | null;
+  fullName: string | null;
+  dateOfBirth: string | null;
+  age: number | null;
+  gender: string | null;
+  countryCode: string | null;
+  mobileNumber: string | null;
+  fullPhoneNumber: string | null;
+  email: string;
+  country: string | null;
+  state: string | null;
+  addressLine: string | null;
+  pincode: string | null;
+  profilePhotoUrl: string | null;
+  emailVerified: boolean;
+}
+
+export interface UpdateProfileRequest {
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  dateOfBirth: string; // ISO date string
+  gender: 'MALE' | 'FEMALE' | 'OTHER';
+  countryCode: string;
+  mobileNumber: string;
+  country?: string;
+  state?: string;
+  addressLine?: string;
+  pincode?: string;
+}
+
+export interface PhotoUploadResponse {
+  message: string;
+  profilePhotoUrl: string;
+}
+
 // Navigation types
 export type RootStackParamList = {
   Welcome: undefined;
@@ -59,6 +101,7 @@ export type RootStackParamList = {
   Register: undefined;
   EmailVerification: { email: string };
   Home: undefined;
+  UserProfile: undefined;
 };
 
 // API Error type

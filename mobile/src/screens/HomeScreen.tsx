@@ -1,22 +1,19 @@
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, User as UserIcon, Calendar, Clipboard, Apple } from 'lucide-react-native';
+import { Calendar, Clipboard, Apple } from 'lucide-react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types';
+import AppHeader from '../components/AppHeader';
 
-const HomeScreen = () => {
-    const { user, logout } = useAuth();
+type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
+
+const HomeScreen: React.FC<Props> = ({ navigation }) => {
+    const { user } = useAuth();
 
     return (
         <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <View>
-                    <Text style={styles.greeting}>Hello,</Text>
-                    <Text style={styles.userName}>{user?.fullName || 'User'}</Text>
-                </View>
-                <TouchableOpacity onPress={logout} style={styles.logoutButton}>
-                    <LogOut size={24} color="#FF4B4B" />
-                </TouchableOpacity>
-            </View>
+            <AppHeader navigation={navigation} />
 
             <View style={styles.statsContainer}>
                 <View style={styles.statCard}>
@@ -57,30 +54,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#F8F9FA',
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 20,
-    },
-    greeting: {
-        fontSize: 16,
-        color: '#6c757d',
-        fontFamily: 'System',
-    },
-    userName: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#212529',
-        fontFamily: 'System',
-    },
-    logoutButton: {
-        padding: 10,
-        backgroundColor: '#FFE5E5',
-        borderRadius: 12,
     },
     statsContainer: {
         flexDirection: 'row',

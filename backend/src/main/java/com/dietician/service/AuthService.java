@@ -33,6 +33,7 @@ public class AuthService {
     private final JwtTokenProvider tokenProvider;
     private final EmailService emailService;
     private final AuthenticationManager authenticationManager;
+    private final AuditLogService auditLogService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     /**
@@ -43,15 +44,15 @@ public class AuthService {
         // Check if user already exists
         String emailHash = EmailHashUtil.hash(request.getEmail());
         if (userRepository.existsByEmailSearch(emailHash)) {
-            throw new RuntimeException("Email already registered");
+            throw new RuntimeException("This email is already registered. Please log in or use a different email.");
         }
 
         // Generate OTP
         String otpCode = generateOtp();
-        
+
         // Get PATIENT role
         Role patientRole = roleRepository.findByRoleCode("PATIENT")
-                .orElseThrow(() -> new RuntimeException("PATIENT role not found in database"));
+                .orElseThrow(() -> new RuntimeException("System configuration error. Please contact support."));
         
         // Create user
         User user = User.builder()
@@ -68,6 +69,9 @@ public class AuthService {
 
         userRepository.save(user);
         log.info("User registered successfully: {}", request.getEmail());
+
+        // Create audit log
+        auditLogService.createAuditLog("users", user.getId(), "INSERT", request.getEmail(), null);
 
         // Send OTP email
         emailService.sendOtpEmail(request.getEmail(), otpCode, request.getFullName());
@@ -86,7 +90,7 @@ public class AuthService {
                 .orElseThrow(() -> new RuntimeException("Invalid email or password"));
 
         if (!user.getEmailVerified()) {
-            throw new RuntimeException("Please verify your email first");
+            throw new RuntimeException("Please verify your email address before logging in. Check your inbox for the verification code.");
         }
 
         // Authenticate
@@ -99,6 +103,9 @@ public class AuthService {
         String refreshToken = tokenProvider.generateRefreshToken(request.getEmail());
 
         log.info("User logged in successfully: {}", request.getEmail());
+
+        // Create audit log
+        auditLogService.createAuditLog("users", user.getId(), "LOGIN", request.getEmail(), null);
 
         return new AuthDto.AuthResponse(
                 accessToken,
@@ -119,12 +126,12 @@ public class AuthService {
 
         // Check OTP
         if (user.getOtpCode() == null || !user.getOtpCode().equals(request.getOtpCode())) {
-            throw new RuntimeException("Invalid OTP code");
+            throw new RuntimeException("The verification code you entered is incorrect. Please check and try again.");
         }
 
         // Check expiry
         if (user.getOtpExpiry() == null || LocalDateTime.now().isAfter(user.getOtpExpiry())) {
-            throw new RuntimeException("OTP code has expired");
+            throw new RuntimeException("The verification code has expired. Please request a new code.");
         }
 
         // Mark email as verified
@@ -159,7 +166,7 @@ public class AuthService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         if (user.getEmailVerified()) {
-            throw new RuntimeException("Email already verified");
+            throw new RuntimeException("This email has already been verified. You can now log in.");
         }
 
         // Generate new OTP
@@ -183,12 +190,12 @@ public class AuthService {
         String refreshToken = request.getRefreshToken();
         
         if (!tokenProvider.validateToken(refreshToken)) {
-            throw new RuntimeException("Invalid refresh token");
+            throw new RuntimeException("Your session has expired. Please log in again.");
         }
 
         String email = tokenProvider.getUsernameFromToken(refreshToken);
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException("Account not found. Please log in again."));
 
         String newAccessToken = tokenProvider.generateToken(email);
 

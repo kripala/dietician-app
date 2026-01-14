@@ -15,6 +15,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { ChevronLeft, RefreshCcw, CheckCircle2 } from 'lucide-react-native';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EmailVerification'>;
 
@@ -74,7 +75,8 @@ const EmailVerificationScreen: React.FC<Props> = ({ route, navigation }) => {
                 { text: 'Continue', onPress: () => { } } // AuthContext handles transition
             ]);
         } catch (error: any) {
-            Alert.alert('Verification Failed', error.response?.data?.message || 'Invalid OTP code');
+            const errorMessage = getErrorMessage(error, 'OTP verification failed. Please try again.');
+            Alert.alert('Verification Failed', errorMessage);
         } finally {
             setIsSubmitting(false);
         }
@@ -88,7 +90,8 @@ const EmailVerificationScreen: React.FC<Props> = ({ route, navigation }) => {
             setTimer(300);
             Alert.alert('Success', 'A new code has been sent to your email.');
         } catch (error: any) {
-            Alert.alert('Error', error.response?.data?.message || 'Failed to resend code');
+            const errorMessage = getErrorMessage(error, 'Failed to resend code. Please try again.');
+            Alert.alert('Error', errorMessage);
         } finally {
             setIsResending(false);
         }

@@ -28,6 +28,12 @@ class ApiClient {
                 if (token) {
                     requestConfig.headers.Authorization = `Bearer ${token}`;
                 }
+
+                // Remove Content-Type header for FormData to let axios set it automatically with boundary
+                if (requestConfig.data instanceof FormData) {
+                    delete requestConfig.headers['Content-Type'];
+                }
+
                 return requestConfig;
             },
             (error) => Promise.reject(error)
@@ -89,8 +95,8 @@ class ApiClient {
         return response.data;
     }
 
-    async post<T>(url: string, data?: any): Promise<T> {
-        const response = await this.client.post<T>(url, data);
+    async post<T>(url: string, data?: any, config?: any): Promise<T> {
+        const response = await this.client.post<T>(url, data, config);
         return response.data;
     }
 

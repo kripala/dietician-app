@@ -6,7 +6,7 @@ set -euo pipefail
 
 # Configuration
 PROJECT_ROOT=$(pwd)
-LOG_DIR="$PROJECT_ROOT/logs"
+LOG_DIR="/var/log/dietician"
 PID_FILE="$PROJECT_ROOT/.pids"
 BACKEND_DIR="$PROJECT_ROOT/backend"
 FRONTEND_DIR="$PROJECT_ROOT/mobile"
@@ -137,22 +137,22 @@ export DB_PASSWORD=${DB_PASSWORD:-dietician_password}
 # 2. Start Backend (Spring Boot)
 echo "☕ Starting Backend API using Java 17..."
 cd "$BACKEND_DIR"
-nohup mvn spring-boot:run > "$LOG_DIR/backend.log" 2>&1 &
+nohup mvn spring-boot:run > "$LOG_DIR/dietician-8080.log" 2>&1 &
 BACKEND_PID=$!
 echo "$BACKEND_PID" > "$PID_FILE"
-echo "✅ Backend started in background (PID: $BACKEND_PID). Logs: logs/backend.log"
+echo "✅ Backend started in background (PID: $BACKEND_PID). Logs: $LOG_DIR/dietician-8080.log"
 
 # 3. Start Frontend (React Native/Expo)
 echo "📱 Starting Mobile Frontend (Web)..."
 cd "$FRONTEND_DIR"
 if [ ! -d "node_modules" ]; then
   echo "📦 Installing frontend dependencies..."
-  npm install >> "$LOG_DIR/mobile.log" 2>&1
+  npm install >> "$LOG_DIR/mobile/mobile.log" 2>&1
 fi
-nohup npx expo start --web > "$LOG_DIR/mobile.log" 2>&1 &
+nohup npx expo start --web > "$LOG_DIR/mobile/mobile.log" 2>&1 &
 FRONTEND_PID=$!
 echo "$FRONTEND_PID" >> "$PID_FILE"
-echo "✅ Frontend started in background (PID: $FRONTEND_PID). Logs: logs/mobile.log"
+echo "✅ Frontend started in background (PID: $FRONTEND_PID). Logs: $LOG_DIR/mobile/mobile.log"
 
 cd "$PROJECT_ROOT"
 echo ""

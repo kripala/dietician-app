@@ -15,6 +15,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { Mail, Lock, ChevronLeft, ArrowRight } from 'lucide-react-native';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
@@ -26,7 +27,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
     const handleLogin = async () => {
         if (!email || !password) {
-            Alert.alert('Error', 'Please fill in all fields');
+            window.alert('Error: Please fill in all fields');
             return;
         }
 
@@ -35,22 +36,32 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
             await login({ email, password });
             // Navigation is handled automatically by AuthContext
         } catch (error: any) {
-            const errorMessage = error.response?.data?.message || error.message || 'Login failed';
+            console.error('Login error:', error);
+            const errorMessage = getErrorMessage(error, 'Login failed. Please try again.');
+            console.error('Extracted error message:', errorMessage);
 
-            if (errorMessage.includes('verify your email')) {
-                Alert.alert(
-                    'Email Not Verified',
-                    'Please verify your email address to continue.',
-                    [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                            text: 'Verify Now',
-                            onPress: () => navigation.navigate('EmailVerification', { email })
-                        }
-                    ]
-                );
+            // Check if user needs to verify email
+            if (errorMessage.toLowerCase().includes('verify your email') ||
+                errorMessage.toLowerCase().includes('email not verified')) {
+                if (Platform.OS === 'web') {
+                    if (window.confirm('Please verify your email address to continue.\n\nGo to verification screen?')) {
+                        navigation.navigate('EmailVerification', { email });
+                    }
+                } else {
+                    Alert.alert(
+                        'Email Not Verified',
+                        'Please verify your email address to continue.',
+                        [
+                            { text: 'Cancel', style: 'cancel' },
+                            {
+                                text: 'Verify Now',
+                                onPress: () => navigation.navigate('EmailVerification', { email })
+                            }
+                        ]
+                    );
+                }
             } else {
-                Alert.alert('Login Failed', errorMessage);
+                window.alert(`Login Failed: ${errorMessage}`);
             }
         } finally {
             setIsSubmitting(false);

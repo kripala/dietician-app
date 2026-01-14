@@ -16,6 +16,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { Mail, Lock, User as UserIcon, ChevronLeft, ArrowRight } from 'lucide-react-native';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 
@@ -63,10 +64,8 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 navigation.navigate('EmailVerification', { email })
             );
         } catch (error: any) {
-            showAlert(
-                'Registration Failed',
-                error.response?.data?.message || error.message || 'Registration failed'
-            );
+            const errorMessage = getErrorMessage(error, 'Registration failed. Please try again.');
+            showAlert('Registration Failed', errorMessage);
         } finally {
             setIsSubmitting(false);
         }

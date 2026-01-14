@@ -46,6 +46,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/auth/**",
                                 "/public/**",
+                                "/files/**",
                                 "/error"
                         ).permitAll()
                         // Protected endpoints

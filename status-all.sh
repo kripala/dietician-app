@@ -52,11 +52,11 @@ else
 fi
 
 echo "--------------------------------------------------"
-if [ -f "logs/backend.log" ]; then
+if [ -f "/var/log/dietician/dietician-8080.log" ]; then
     echo "Last backend log line:"
-    tail -n 1 logs/backend.log
+    tail -n 1 /var/log/dietician/dietician-8080.log
 fi
-if [ -f "logs/mobile.log" ]; then
+if [ -f "/var/log/dietician/mobile/mobile.log" ]; then
     echo "Last mobile log line:"
-    tail -n 1 logs/mobile.log
+    tail -n 1 /var/log/dietician/mobile/mobile.log
 fi

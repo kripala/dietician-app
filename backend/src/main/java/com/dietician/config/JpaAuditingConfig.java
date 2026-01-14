@@ -30,9 +30,15 @@ public class JpaAuditingConfig {
         public Optional<String> getCurrentAuditor() {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-            if (authentication == null || !authentication.isAuthenticated() 
+            if (authentication == null || !authentication.isAuthenticated()
                     || "anonymousUser".equals(authentication.getPrincipal())) {
                 return Optional.of("SYSTEM");
+            }
+
+            Object principal = authentication.getPrincipal();
+            if (principal instanceof com.dietician.model.User) {
+                com.dietician.model.User user = (com.dietician.model.User) principal;
+                return Optional.ofNullable(user.getEmail());
             }
 
             return Optional.of(authentication.getName());
