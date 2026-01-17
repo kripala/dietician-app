@@ -1,14 +1,16 @@
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, User as UserIcon, ChevronLeft, Home } from 'lucide-react-native';
+import { ChevronLeft, Home } from 'lucide-react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import ProfileMenu from './ProfileMenu';
 
 interface AppHeaderProps {
   navigation?: NativeStackNavigationProp<any>;
   showBackButton?: boolean;
   showHomeButton?: boolean;
   title?: string;
+  showProfileMenu?: boolean;
 }
 
 const AppHeader: React.FC<AppHeaderProps> = ({
@@ -16,6 +18,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   showBackButton = false,
   showHomeButton = false,
   title,
+  showProfileMenu = true,
 }) => {
   const { user, logout } = useAuth();
 
@@ -50,16 +53,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
           </View>
         )}
       </View>
-      <View style={styles.headerButtons}>
-        <TouchableOpacity
-          onPress={() => navigation?.navigate('UserProfile')}
-          style={styles.iconButton}
-        >
-          <UserIcon size={24} color="#4F46E5" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={logout} style={styles.logoutButton}>
-          <LogOut size={24} color="#FF4B4B" />
-        </TouchableOpacity>
+      <View style={styles.headerRight}>
+        {showProfileMenu && <ProfileMenu navigation={navigation} onLogout={logout} />}
       </View>
     </View>
   );
@@ -102,19 +97,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#212529',
   },
-  headerButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  iconButton: {
-    padding: 10,
-    backgroundColor: '#EEF2FF',
-    borderRadius: 12,
-  },
-  logoutButton: {
-    padding: 10,
-    backgroundColor: '#FFE5E5',
-    borderRadius: 12,
+  headerRight: {
+    alignItems: 'flex-end',
   },
 });
 

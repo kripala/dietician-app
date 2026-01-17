@@ -7,9 +7,70 @@ export interface User {
   id: number;
   email: string;
   fullName: string | null;
-  role: string;
+  role: 'ADMIN' | 'DIETICIAN' | 'PATIENT';  // Backend returns role as a string
+  actions?: string[];
   emailVerified: boolean;
   profilePictureUrl: string | null;
+}
+
+export interface Role {
+  id: number;
+  roleCode: 'ADMIN' | 'DIETICIAN' | 'PATIENT';
+  roleName: string;
+}
+
+// Admin types
+export interface UserSummary {
+  id: number;
+  email: string;
+  fullName: string | null;
+  roleCode: string;
+  roleName: string;
+  isActive: boolean;
+  emailVerified: boolean;
+  createdDate: string;
+}
+
+export interface UserResponse {
+  id: number;
+  email: string;
+  fullName: string | null;
+  role: Role;
+  isActive: boolean;
+  emailVerified: boolean;
+  profilePictureUrl: string | null;
+  createdDate: string;
+  actions: string[];
+}
+
+export interface Action {
+  id: number;
+  actionCode: string;
+  actionName: string;
+  description: string;
+  module: string;
+  isActive: boolean;
+  assigned?: boolean;
+}
+
+export interface CreateUserRequest {
+  email: string;
+  fullName: string;
+  role: 'PATIENT' | 'DIETICIAN' | 'ADMIN';
+  password?: string;
+}
+
+export interface UpdateUserRequest {
+  fullName?: string;
+  role?: 'PATIENT' | 'DIETICIAN' | 'ADMIN';
+}
+
+export interface PaginatedUsersResponse {
+  content: UserSummary[];
+  totalPages: number;
+  totalElements: number;
+  size: number;
+  number: number;
 }
 
 // Authentication types
@@ -102,6 +163,12 @@ export type RootStackParamList = {
   EmailVerification: { email: string };
   Home: undefined;
   UserProfile: undefined;
+  ResetPassword: undefined;
+  AdminDashboard: undefined;
+  UserList: { role: 'PATIENT' | 'DIETICIAN' };
+  CreateUser: { role: 'PATIENT' | 'DIETICIAN' };
+  EditUser: { userId: number };
+  RoleManagement: undefined;
 };
 
 // API Error type
@@ -109,3 +176,4 @@ export interface ApiError {
   message: string;
   status?: number;
 }
+

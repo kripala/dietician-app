@@ -563,6 +563,7 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
         showBackButton={editing}
         showHomeButton={!editing}
         title={editing ? 'Edit Profile' : 'My Profile'}
+        showProfileMenu={!editing}
       />
       <KeyboardAvoidingView
         style={styles.keyboardContainer}

@@ -80,6 +80,16 @@ public class AuthController {
     }
 
     /**
+     * Change password for authenticated user
+     */
+    @PostMapping("/change-password")
+    public ResponseEntity<AuthDto.MessageResponse> changePassword(@Valid @RequestBody AuthDto.ChangePasswordRequest request) {
+        log.info("Change password request received");
+        AuthDto.MessageResponse response = authService.changePassword(request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * Health check endpoint
      */
     @GetMapping("/health")

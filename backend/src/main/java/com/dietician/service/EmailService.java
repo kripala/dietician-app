@@ -66,9 +66,31 @@ public class EmailService {
 
             mailSender.send(message);
             log.info("Welcome email sent successfully to: {}", toEmail);
-            
+
         } catch (MessagingException e) {
             log.error("Failed to send welcome email to: {}", toEmail, e);
+        }
+    }
+
+    /**
+     * Send a simple plain text email (for admin notifications)
+     */
+    @Async
+    public void sendEmail(String toEmail, String subject, String body) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(toEmail);
+            helper.setSubject(subject);
+            helper.setText(body);
+
+            mailSender.send(message);
+            log.info("Email sent successfully to: {}", toEmail);
+
+        } catch (MessagingException e) {
+            log.error("Failed to send email to: {}", toEmail, e);
         }
     }
 

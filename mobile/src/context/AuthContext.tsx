@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import authService from '../services/authService';
-import { User, LoginRequest, RegisterRequest, VerifyOtpRequest } from '../types';
+import { User, LoginRequest, RegisterRequest, VerifyOtpRequest, Role } from '../types';
 
 interface AuthContextType {
     user: User | null;
@@ -12,6 +12,7 @@ interface AuthContextType {
     resendOtp: (email: string) => Promise<{ message: string }>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
+    hasAction: (actionCode: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -116,6 +117,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         resendOtp,
         logout,
         refreshUser,
+        hasAction: (actionCode: string) => {
+            return user?.actions?.includes(actionCode) ?? false;
+        },
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

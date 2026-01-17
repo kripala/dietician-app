@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -205,6 +206,45 @@ public class AuthService {
                 86400000L,
                 mapToUserInfo(user)
         );
+    }
+
+    /**
+     * Change password for authenticated user
+     */
+    @Transactional
+    public AuthDto.MessageResponse changePassword(AuthDto.ChangePasswordRequest request) {
+        // Get authenticated user email from security context
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RuntimeException("User not authenticated");
+        }
+
+        String email = authentication.getName();
+        String emailHash = EmailHashUtil.hash(email);
+
+        User user = userRepository.findByEmailSearch(emailHash)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Verify current password
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new RuntimeException("Current password is incorrect");
+        }
+
+        // Check if new password is same as current password
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new RuntimeException("New password must be different from current password");
+        }
+
+        // Encode and save new password
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        log.info("Password changed successfully for user: {}", email);
+
+        // Create audit log
+        auditLogService.createAuditLog("users", user.getId(), "PASSWORD_CHANGE", email, null);
+
+        return new AuthDto.MessageResponse("Password changed successfully");
     }
 
     /**

@@ -1,15 +1,26 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { Calendar, Clipboard, Apple } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import AppHeader from '../components/AppHeader';
+import { isAdmin } from '../utils/roleHelpers';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
     const { user } = useAuth();
+
+    // Redirect admins to AdminDashboard
+    useEffect(() => {
+        if (user?.role && isAdmin(user.role)) {
+            navigation.reset({
+                index: 0,
+                routes: [{ name: 'AdminDashboard' as never }],
+            });
+        }
+    }, [user, navigation]);
 
     return (
         <SafeAreaView style={styles.container}>
