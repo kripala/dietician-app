@@ -2,7 +2,7 @@ FROM node:18-alpine
 LABEL version=1.0.0
 LABEL description="Dietician Frontend (React Native Web)"
 
-# Install wget for health check and serve package
+# Install wget for health check
 RUN apk add --no-cache wget
 
 WORKDIR /app
@@ -10,20 +10,17 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (including devDependencies needed for build)
+# Install dependencies
 RUN npm ci
 
-# Copy source code
+# Copy source code and server files
 COPY . .
 
-# Set environment for production build
-ENV NODE_ENV=production
-
-# Build static web files for production
-RUN npx expo export --platform web --output-dir web-build
-
-# Install a simple HTTP server to serve static files
+# Install serve globally for production
 RUN npm install -g serve
+
+# Build web bundle
+RUN npx expo export --platform web
 
 # Expose port
 EXPOSE 8081
@@ -32,5 +29,5 @@ EXPOSE 8081
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8081 || exit 1
 
-# Serve static files
-CMD ["serve", "-s", "web-build", "-l", "8081"]
+# Serve the exported web files
+CMD ["serve", "-s", "dist", "-l", "8081"]
