@@ -1,25 +1,20 @@
 name: Deploy to VPS
 
 on:
-  workflow_run:
-    workflows: ["Build Docker Images"]
-    types:
-      - completed
   workflow_dispatch:
     inputs:
       backend_tag:
-        description: 'Backend image tag (leave empty for latest)'
+        description: 'Backend image tag (default: latest)'
         required: false
         default: 'latest'
       frontend_tag:
-        description: 'Frontend image tag (leave empty for latest)'
+        description: 'Frontend image tag (default: latest)'
         required: false
         default: 'latest'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     steps:
       - name: Decode SSH Key
         run: |
@@ -33,7 +28,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key_path: ssh_key
           script: |
-            /opt/scripts/dietician-deploy.sh backend latest
+            /opt/scripts/dietician-deploy.sh backend ${{ inputs.backend_tag }}
 
       - name: Deploy Frontend
         uses: appleboy/ssh-action@v1
@@ -42,4 +37,4 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key_path: ssh_key
           script: |
-            /opt/scripts/dietician-deploy.sh frontend latest
+            /opt/scripts/dietician-deploy.sh frontend ${{ inputs.frontend_tag }}
