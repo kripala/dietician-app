@@ -12,9 +12,7 @@ jobs:
       contents: read
       packages: write
     outputs:
-      version:
-        description: "Docker image tag"
-        value: ${{ steps.tag.outputs.version }}
+      version: ${{ steps.tag.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -57,9 +55,7 @@ jobs:
       contents: read
       packages: write
     outputs:
-      version:
-        description: "Docker image tag"
-        value: ${{ steps.tag.outputs.version }}
+      version: ${{ steps.tag.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
