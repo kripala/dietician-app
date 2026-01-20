@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:20-alpine
 LABEL version=1.0.0
 LABEL description="Dietician Frontend (React Native Web)"
 
