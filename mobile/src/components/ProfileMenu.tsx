@@ -8,9 +8,12 @@ import {
   Platform,
   Animated,
   Dimensions,
+  Image,
 } from 'react-native';
 import { User as UserIcon, Lock, LogOut, ChevronDown } from 'lucide-react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useAuth } from '../context/AuthContext';
+import config from '../config';
 
 interface ProfileMenuProps {
   navigation?: NativeStackNavigationProp<any>;
@@ -18,6 +21,7 @@ interface ProfileMenuProps {
 }
 
 const ProfileMenu: React.FC<ProfileMenuProps> = ({ navigation, onLogout }) => {
+  const { user } = useAuth();
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   const buttonRef = useRef<View>(null);
@@ -26,6 +30,16 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ navigation, onLogout }) => {
 
   const { width: screenWidth } = Dimensions.get('window');
   const menuWidth = 200;
+
+  // Get profile picture URL with proper base URL
+  const getProfilePictureUrl = () => {
+    if (!user?.profilePictureUrl) return null;
+    const apiBaseUrl = config.API_BASE_URL;
+    const baseUrl = apiBaseUrl.replace('/api', '');
+    return `${baseUrl}${user.profilePictureUrl}`;
+  };
+
+  const profilePictureUrl = getProfilePictureUrl();
 
   const toggleMenu = () => {
     if (!menuVisible) {
@@ -83,12 +97,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ navigation, onLogout }) => {
 
   const menuItems = [
     {
-      icon: UserIcon,
-      label: 'Edit Profile',
-      onPress: () => handleMenuPress('UserProfile'),
-      color: '#4F46E5',
-    },
-    {
       icon: Lock,
       label: 'Reset Password',
       onPress: () => handleMenuPress('ResetPassword'),
@@ -103,7 +111,16 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ navigation, onLogout }) => {
         style={styles.menuButton}
         activeOpacity={0.7}
       >
-        <UserIcon size={24} color="#4F46E5" />
+        {profilePictureUrl ? (
+          <Image
+            source={{ uri: profilePictureUrl }}
+            style={styles.profilePicture}
+          />
+        ) : (
+          <View style={[styles.profilePicture, styles.profilePicturePlaceholder]}>
+            <UserIcon size={18} color="#4F46E5" />
+          </View>
+        )}
         <ChevronDown size={16} color="#4F46E5" style={styles.chevron} />
       </TouchableOpacity>
 
@@ -172,6 +189,16 @@ const styles = StyleSheet.create({
   },
   chevron: {
     marginTop: 2,
+  },
+  profilePicture: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  profilePicturePlaceholder: {
+    backgroundColor: '#EEF2FF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalOverlay: {
     flex: 1,

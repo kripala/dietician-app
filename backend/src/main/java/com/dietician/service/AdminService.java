@@ -120,9 +120,10 @@ public class AdminService {
     public UserResponse getUserById(Long userId) {
         String query = """
             SELECT u.id, u.email_search, u.full_name, r.id, r.role_code, r.role_name,
-                   u.is_active, u.email_verified, u.profile_picture_url, u.created_date
+                   u.is_active, u.email_verified, up.profile_photo_url, u.created_date
             FROM diet.users u
             JOIN diet.roles r ON u.role_id = r.id
+            LEFT JOIN diet.user_profiles up ON u.id = up.user_id
             WHERE u.id = :userId
             """;
 
@@ -426,21 +427,53 @@ public class AdminService {
     }
 
     /**
+     * Get all available roles - for dynamic frontend rendering.
+     * Returns all active roles that can be used in the system.
+     */
+    public List<RoleResponse> getAllRoles() {
+        return roleRepository.findAll()
+                .stream()
+                .map(role -> RoleResponse.builder()
+                        .id(role.getId())
+                        .roleCode(role.getRoleCode())
+                        .roleName(role.getRoleName())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Get actions available to a user (based on their role).
+     * Uses native query to avoid encrypted email field.
      */
     public UserActionsResponse getUserActions(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+        // Use native query to get user data without encrypted email
+        Object[] result = (Object[]) entityManager.createNativeQuery(
+                "SELECT u.id, r.role_code FROM diet.users u JOIN diet.roles r ON u.role_id = r.id WHERE u.id = :userId")
+                .setParameter("userId", userId)
+                .getSingleResult();
 
-        List<Action> actions = roleActionRepository.findActionsByRoleId(user.getRole().getId());
+        if (result == null) {
+            throw new ResourceNotFoundException("User not found with id: " + userId);
+        }
+
+        Long userIdResult = ((Number) result[0]).longValue();
+        String roleCode = (String) result[1];
+
+        // Get role ID from role_code
+        Long roleId = ((Number) entityManager.createNativeQuery(
+                "SELECT id FROM diet.roles WHERE role_code = :roleCode")
+                .setParameter("roleCode", roleCode)
+                .getSingleResult()).longValue();
+
+        List<Action> actions = roleActionRepository.findActionsByRoleId(roleId);
         List<String> actionCodes = actions.stream()
                 .map(Action::getActionCode)
                 .collect(Collectors.toList());
 
         return UserActionsResponse.builder()
-                .userId(user.getId())
-                .email(user.getEmail())
-                .roleCode(user.getRole().getRoleCode())
+                .userId(userIdResult)
+                .email("") // Email is encrypted, not returned
+                .roleCode(roleCode)
                 .actions(actionCodes)
                 .build();
     }

@@ -3,6 +3,10 @@ export JAVA_HOME=/usr/lib/jvm/java-1.17.0-openjdk-amd64
 export PATH=$JAVA_HOME/bin:$PATH
 set -euo pipefail
 
+# Profile selection: dev (MailHog), prod (Mailcow)
+SPRING_PROFILE=${1:-dev}
+export SPRING_PROFILES_ACTIVE=$SPRING_PROFILE
+
 # Configuration
 PROJECT_ROOT=$(pwd)
 LOG_DIR="/var/log/dietician"
@@ -85,8 +89,10 @@ else
 fi
 
 # Step 6: Start backend
-print_step "Starting backend..."
-nohup mvn spring-boot:run > "$LOG_DIR/dietician-8080.log" 2>&1 &
+print_step "Starting backend with profile: $SPRING_PROFILE"
+echo "   - dev  : MailHog (local email capture at http://localhost:8025)"
+echo "   - prod : Mailcow (production emails)"
+nohup mvn spring-boot:run -Dspring-boot.run.profiles=$SPRING_PROFILE > "$LOG_DIR/dietician-8080.log" 2>&1 &
 BACKEND_PID=$!
 echo "$BACKEND_PID" > "$PROJECT_ROOT/.backend-pid"
 print_success "Backend started in background (PID: $BACKEND_PID)"
@@ -113,9 +119,19 @@ echo "  ✅ BACKEND DEPLOYMENT COMPLETE"
 echo "========================================"
 echo ""
 echo "Backend Details:"
+echo "  • Profile: $SPRING_PROFILE"
 echo "  • PID: $BACKEND_PID"
 echo "  • API Endpoint: http://localhost:8080/api"
+if [ "$SPRING_PROFILE" = "dev" ]; then
+  echo "  • Email: MailHog at http://localhost:8025"
+else
+  echo "  • Email: Mailcow at mail.mamaarogyam.cloud"
+fi
 echo "  • Logs: $LOG_DIR/dietician-8080.log"
+echo ""
+echo "Usage: ./deploy-backend.sh [dev|prod]"
+echo "  dev  : MailHog (default)"
+echo "  prod : Mailcow (production)"
 echo ""
 echo "To check logs:"
 echo "  tail -f $LOG_DIR/dietician-8080.log"

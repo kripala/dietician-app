@@ -4,6 +4,10 @@ export PATH=$JAVA_HOME/bin:$PATH
 export EXPO_OFFLINE=${EXPO_OFFLINE:-true}
 set -euo pipefail
 
+# Profile selection: dev (MailHog), prod (Mailcow)
+SPRING_PROFILE=${1:-dev}
+export SPRING_PROFILES_ACTIVE=$SPRING_PROFILE
+
 # Configuration
 PROJECT_ROOT=$(pwd)
 LOG_DIR="/var/log/dietician"
@@ -136,8 +140,11 @@ export DB_PASSWORD=${DB_PASSWORD:-dietician_password}
 
 # 2. Start Backend (Spring Boot)
 echo "☕ Starting Backend API using Java 17..."
+echo "🔧 Using Spring Profile: $SPRING_PROFILE"
+echo "   - dev  : MailHog (local email capture at http://localhost:8025)"
+echo "   - prod : Mailcow (production emails)"
 cd "$BACKEND_DIR"
-nohup mvn spring-boot:run > "$LOG_DIR/dietician-8080.log" 2>&1 &
+nohup mvn spring-boot:run -Dspring-boot.run.profiles=$SPRING_PROFILE > "$LOG_DIR/dietician-8080.log" 2>&1 &
 BACKEND_PID=$!
 echo "$BACKEND_PID" > "$PID_FILE"
 echo "✅ Backend started in background (PID: $BACKEND_PID). Logs: $LOG_DIR/dietician-8080.log"
@@ -158,9 +165,18 @@ cd "$PROJECT_ROOT"
 echo ""
 echo "🌟 All services are starting up!"
 echo "--------------------------------------------------"
-echo "API Endpoint: http://localhost:8080/api"
-echo "MailHog UI:   http://localhost:8025"
-echo "Frontend UI:  http://localhost:8081"
+echo "Profile:       $SPRING_PROFILE"
+echo "API Endpoint:  http://localhost:8080/api"
+if [ "$SPRING_PROFILE" = "dev" ]; then
+  echo "Email:         MailHog at http://localhost:8025"
+else
+  echo "Email:         Mailcow at mail.mamaarogyam.cloud"
+fi
+echo "Frontend UI:   http://localhost:8081"
 echo "--------------------------------------------------"
+echo "Usage: ./start-all.sh [dev|prod]"
+echo "  dev  : MailHog (default)"
+echo "  prod : Mailcow (production)"
+echo ""
 echo "Note: It may take 30-60 seconds for the browser UI to be ready."
 echo "Use ./status-all.sh to check status or ./stop-all.sh to stop."

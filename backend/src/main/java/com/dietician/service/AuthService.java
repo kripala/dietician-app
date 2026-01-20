@@ -17,6 +17,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 
@@ -35,6 +37,7 @@ public class AuthService {
     private final EmailService emailService;
     private final AuthenticationManager authenticationManager;
     private final AuditLogService auditLogService;
+    private final EntityManager entityManager;
     private final SecureRandom secureRandom = new SecureRandom();
 
     /**
@@ -82,102 +85,214 @@ public class AuthService {
 
     /**
      * Login with email and password
+     * Uses native query to avoid encrypted email field decryption issues
      */
     @Transactional(readOnly = true)
     public AuthDto.AuthResponse login(AuthDto.LoginRequest request) {
-        // Check if user exists and email is verified
         String emailHash = EmailHashUtil.hash(request.getEmail());
-        User user = userRepository.findByEmailSearch(emailHash)
-                .orElseThrow(() -> new RuntimeException("Invalid email or password"));
 
-        if (!user.getEmailVerified()) {
+        // Use native query to get user data without encrypted email
+        // Include profile picture from user_profiles table
+        String nativeQuery = """
+            SELECT u.id, u.password, u.full_name, u.email_verified,
+                   u.is_active, up.profile_photo_url,
+                   r.id as role_id, r.role_code, r.role_name
+            FROM diet.users u
+            JOIN diet.roles r ON u.role_id = r.id
+            LEFT JOIN diet.user_profiles up ON u.id = up.user_id
+            WHERE u.email_search = :emailHash
+            """;
+
+        Query query = entityManager.createNativeQuery(nativeQuery);
+        query.setParameter("emailHash", emailHash);
+
+        Object[] result;
+        try {
+            result = (Object[]) query.getSingleResult();
+        } catch (Exception e) {
+            throw new RuntimeException("Invalid email or password");
+        }
+
+        Long userId = ((Number) result[0]).longValue();
+        String password = (String) result[1];
+        String fullName = (String) result[2];
+        Boolean emailVerified = (Boolean) result[3];
+        Boolean isActive = (Boolean) result[4];
+        String profilePictureUrl = (String) result[5];
+        String roleCode = (String) result[7];
+        String roleName = (String) result[8];
+
+        if (!Boolean.TRUE.equals(emailVerified)) {
             throw new RuntimeException("Please verify your email address before logging in. Check your inbox for the verification code.");
         }
 
-        // Authenticate
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
+        if (!Boolean.TRUE.equals(isActive)) {
+            throw new RuntimeException("Your account has been deactivated. Please contact support.");
+        }
+
+        // Verify password
+        if (!passwordEncoder.matches(request.getPassword(), password)) {
+            throw new RuntimeException("Invalid email or password");
+        }
 
         // Generate tokens
-        String accessToken = tokenProvider.generateToken(authentication);
+        String accessToken = tokenProvider.generateToken(request.getEmail());
         String refreshToken = tokenProvider.generateRefreshToken(request.getEmail());
 
         log.info("User logged in successfully: {}", request.getEmail());
 
         // Create audit log
-        auditLogService.createAuditLog("users", user.getId(), "LOGIN", request.getEmail(), null);
+        auditLogService.createAuditLog("users", userId, "LOGIN", request.getEmail(), null);
 
-        return new AuthDto.AuthResponse(
-                accessToken,
-                refreshToken,
-                86400000L, // 24 hours
-                mapToUserInfo(user)
-        );
-    }
-
-    /**
-     * Verify OTP code
-     */
-    @Transactional
-    public AuthDto.AuthResponse verifyOtp(AuthDto.VerifyOtpRequest request) {
-        String emailHash = EmailHashUtil.hash(request.getEmail());
-        User user = userRepository.findByEmailSearch(emailHash)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        // Check OTP
-        if (user.getOtpCode() == null || !user.getOtpCode().equals(request.getOtpCode())) {
-            throw new RuntimeException("The verification code you entered is incorrect. Please check and try again.");
-        }
-
-        // Check expiry
-        if (user.getOtpExpiry() == null || LocalDateTime.now().isAfter(user.getOtpExpiry())) {
-            throw new RuntimeException("The verification code has expired. Please request a new code.");
-        }
-
-        // Mark email as verified
-        user.setEmailVerified(true);
-        user.setOtpCode(null);
-        user.setOtpExpiry(null);
-        userRepository.save(user);
-
-        log.info("Email verified successfully: {}", request.getEmail());
-
-        // Send welcome email
-        emailService.sendWelcomeEmail(user.getEmail(), user.getFullName());
-
-        // Generate tokens
-        String accessToken = tokenProvider.generateToken(user.getEmail());
-        String refreshToken = tokenProvider.generateRefreshToken(user.getEmail());
+        // Build response
+        AuthDto.UserInfo userInfo = new AuthDto.UserInfo();
+        userInfo.setId(userId);
+        userInfo.setEmail(request.getEmail()); // Use the email from request, not from DB
+        userInfo.setFullName(fullName);
+        userInfo.setRole(roleCode);
+        userInfo.setEmailVerified(emailVerified);
+        userInfo.setProfilePictureUrl(profilePictureUrl);
 
         return new AuthDto.AuthResponse(
                 accessToken,
                 refreshToken,
                 86400000L,
-                mapToUserInfo(user)
+                userInfo
+        );
+    }
+
+    /**
+     * Verify OTP code
+     * Uses native query to avoid encrypted email field
+     */
+    @Transactional
+    public AuthDto.AuthResponse verifyOtp(AuthDto.VerifyOtpRequest request) {
+        String emailHash = EmailHashUtil.hash(request.getEmail());
+
+        // Use native query to get user data without encrypted email
+        // Include profile picture from user_profiles table
+        String nativeQuery = """
+            SELECT u.id, u.otp_code, u.otp_expiry, u.full_name,
+                   u.email_verified, u.is_active, up.profile_photo_url,
+                   r.role_code
+            FROM diet.users u
+            JOIN diet.roles r ON u.role_id = r.id
+            LEFT JOIN diet.user_profiles up ON u.id = up.user_id
+            WHERE u.email_search = :emailHash
+            """;
+
+        Query query = entityManager.createNativeQuery(nativeQuery);
+        query.setParameter("emailHash", emailHash);
+
+        Object[] result;
+        try {
+            result = (Object[]) query.getSingleResult();
+        } catch (Exception e) {
+            throw new RuntimeException("User not found");
+        }
+
+        Long userId = ((Number) result[0]).longValue();
+        String otpCode = (String) result[1];
+        Object otpExpiryObj = result[2];
+        String fullName = (String) result[3];
+        Boolean emailVerified = (Boolean) result[4];
+        Boolean isActive = (Boolean) result[5];
+        String profilePictureUrl = (String) result[6];
+        String roleCode = (String) result[7];
+
+        // Check OTP
+        if (otpCode == null || !otpCode.equals(request.getOtpCode())) {
+            throw new RuntimeException("The verification code you entered is incorrect. Please check and try again.");
+        }
+
+        // Check expiry
+        LocalDateTime otpExpiry = otpExpiryObj != null ? ((java.sql.Timestamp) otpExpiryObj).toLocalDateTime() : null;
+        if (otpExpiry == null || LocalDateTime.now().isAfter(otpExpiry)) {
+            throw new RuntimeException("The verification code has expired. Please request a new code.");
+        }
+
+        // Mark email as verified using native update
+        entityManager.createNativeQuery("""
+                UPDATE diet.users
+                SET email_verified = true, otp_code = NULL, otp_expiry = NULL
+                WHERE id = :userId
+                """)
+                .setParameter("userId", userId)
+                .executeUpdate();
+
+        log.info("Email verified successfully: {}", request.getEmail());
+
+        // Send welcome email
+        emailService.sendWelcomeEmail(request.getEmail(), fullName);
+
+        // Generate tokens
+        String accessToken = tokenProvider.generateToken(request.getEmail());
+        String refreshToken = tokenProvider.generateRefreshToken(request.getEmail());
+
+        // Build response
+        AuthDto.UserInfo userInfo = new AuthDto.UserInfo();
+        userInfo.setId(userId);
+        userInfo.setEmail(request.getEmail());
+        userInfo.setFullName(fullName);
+        userInfo.setRole(roleCode);
+        userInfo.setEmailVerified(true);
+        userInfo.setProfilePictureUrl(profilePictureUrl);
+
+        return new AuthDto.AuthResponse(
+                accessToken,
+                refreshToken,
+                86400000L,
+                userInfo
         );
     }
 
     /**
      * Resend OTP code
+     * Uses native query to avoid encrypted email field
      */
     @Transactional
     public AuthDto.MessageResponse resendOtp(AuthDto.ResendOtpRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        String emailHash = EmailHashUtil.hash(request.getEmail());
 
-        if (user.getEmailVerified()) {
+        // Use native query to get user data without encrypted email
+        String nativeQuery = """
+            SELECT u.id, u.email_verified, u.full_name
+            FROM diet.users u
+            WHERE u.email_search = :emailHash
+            """;
+
+        Object[] result;
+        try {
+            result = (Object[]) entityManager.createNativeQuery(nativeQuery)
+                    .setParameter("emailHash", emailHash)
+                    .getSingleResult();
+        } catch (Exception e) {
+            throw new RuntimeException("User not found");
+        }
+
+        Long userId = ((Number) result[0]).longValue();
+        Boolean emailVerified = (Boolean) result[1];
+        String fullName = (String) result[2];
+
+        if (Boolean.TRUE.equals(emailVerified)) {
             throw new RuntimeException("This email has already been verified. You can now log in.");
         }
 
         // Generate new OTP
         String otpCode = generateOtp();
-        user.setOtpCode(otpCode);
-        user.setOtpExpiry(LocalDateTime.now().plusMinutes(5));
-        userRepository.save(user);
+
+        // Update OTP using native query
+        entityManager.createNativeQuery("""
+                UPDATE diet.users
+                SET otp_code = :otpCode, otp_expiry = now() + interval '5 minutes'
+                WHERE id = :userId
+                """)
+                .setParameter("otpCode", otpCode)
+                .setParameter("userId", userId)
+                .executeUpdate();
 
         // Send OTP email
-        emailService.sendOtpEmail(user.getEmail(), otpCode, user.getFullName());
+        emailService.sendOtpEmail(request.getEmail(), otpCode, fullName);
 
         log.info("OTP resent to: {}", request.getEmail());
 
@@ -186,30 +301,72 @@ public class AuthService {
 
     /**
      * Refresh access token
+     * Uses native query to avoid encrypted email field
      */
     public AuthDto.AuthResponse refreshToken(AuthDto.RefreshTokenRequest request) {
         String refreshToken = request.getRefreshToken();
-        
+
         if (!tokenProvider.validateToken(refreshToken)) {
             throw new RuntimeException("Your session has expired. Please log in again.");
         }
 
         String email = tokenProvider.getUsernameFromToken(refreshToken);
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Account not found. Please log in again."));
+        String emailHash = EmailHashUtil.hash(email);
+
+        // Use native query to get user data without encrypted email
+        // Include profile picture from user_profiles table
+        String nativeQuery = """
+            SELECT u.id, u.full_name, u.email_verified,
+                   u.is_active, up.profile_photo_url, r.role_code
+            FROM diet.users u
+            JOIN diet.roles r ON u.role_id = r.id
+            LEFT JOIN diet.user_profiles up ON u.id = up.user_id
+            WHERE u.email_search = :emailHash
+            """;
+
+        Query query = entityManager.createNativeQuery(nativeQuery);
+        query.setParameter("emailHash", emailHash);
+
+        Object[] result;
+        try {
+            result = (Object[]) query.getSingleResult();
+        } catch (Exception e) {
+            throw new RuntimeException("Account not found. Please log in again.");
+        }
+
+        Long userId = ((Number) result[0]).longValue();
+        String fullName = (String) result[1];
+        Boolean emailVerified = (Boolean) result[2];
+        Boolean isActive = (Boolean) result[3];
+        String profilePictureUrl = (String) result[4];
+        String roleCode = (String) result[5];
+
+        if (!Boolean.TRUE.equals(isActive)) {
+            throw new RuntimeException("Your account has been deactivated. Please contact support.");
+        }
 
         String newAccessToken = tokenProvider.generateToken(email);
+
+        // Build response
+        AuthDto.UserInfo userInfo = new AuthDto.UserInfo();
+        userInfo.setId(userId);
+        userInfo.setEmail(email);
+        userInfo.setFullName(fullName);
+        userInfo.setRole(roleCode);
+        userInfo.setEmailVerified(emailVerified);
+        userInfo.setProfilePictureUrl(profilePictureUrl);
 
         return new AuthDto.AuthResponse(
                 newAccessToken,
                 refreshToken,
                 86400000L,
-                mapToUserInfo(user)
+                userInfo
         );
     }
 
     /**
      * Change password for authenticated user
+     * Uses native query to avoid encrypted email field
      */
     @Transactional
     public AuthDto.MessageResponse changePassword(AuthDto.ChangePasswordRequest request) {
@@ -222,77 +379,169 @@ public class AuthService {
         String email = authentication.getName();
         String emailHash = EmailHashUtil.hash(email);
 
-        User user = userRepository.findByEmailSearch(emailHash)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        // Use native query to get user data without encrypted email
+        String nativeQuery = """
+            SELECT u.id, u.password
+            FROM diet.users u
+            WHERE u.email_search = :emailHash
+            """;
+
+        Query query = entityManager.createNativeQuery(nativeQuery);
+        query.setParameter("emailHash", emailHash);
+
+        Object[] result;
+        try {
+            result = (Object[]) query.getSingleResult();
+        } catch (Exception e) {
+            throw new RuntimeException("User not found");
+        }
+
+        Long userId = ((Number) result[0]).longValue();
+        String password = (String) result[1];
 
         // Verify current password
-        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+        if (!passwordEncoder.matches(request.getCurrentPassword(), password)) {
             throw new RuntimeException("Current password is incorrect");
         }
 
         // Check if new password is same as current password
-        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+        if (passwordEncoder.matches(request.getNewPassword(), password)) {
             throw new RuntimeException("New password must be different from current password");
         }
 
         // Encode and save new password
-        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-        userRepository.save(user);
+        String encodedPassword = passwordEncoder.encode(request.getNewPassword());
+        entityManager.createNativeQuery("""
+                UPDATE diet.users SET password = :password WHERE id = :userId
+                """)
+                .setParameter("password", encodedPassword)
+                .setParameter("userId", userId)
+                .executeUpdate();
 
         log.info("Password changed successfully for user: {}", email);
 
         // Create audit log
-        auditLogService.createAuditLog("users", user.getId(), "PASSWORD_CHANGE", email, null);
+        auditLogService.createAuditLog("users", userId, "PASSWORD_CHANGE", email, null);
 
         return new AuthDto.MessageResponse("Password changed successfully");
     }
 
     /**
      * Handle Google OAuth login
+     * Uses native queries to avoid encrypted email field issues
      */
     @Transactional
     public AuthDto.AuthResponse handleOAuthLogin(String email, String googleId, String fullName, String pictureUrl) {
-        User user = userRepository.findByGoogleId(googleId)
-                .orElseGet(() -> {
-                    // Check if email already exists
-                    return userRepository.findByEmail(email)
-                            .map(existingUser -> {
-                                // Link Google account to existing user
-                                existingUser.setGoogleId(googleId);
-                                existingUser.setEmailVerified(true);
-                                if (existingUser.getProfilePictureUrl() == null) {
-                                    existingUser.setProfilePictureUrl(pictureUrl);
-                                }
-                                return userRepository.save(existingUser);
-                            })
-                            .orElseGet(() -> {
-                                // Create new user
-                                Role patientRole = roleRepository.findByRoleCode("PATIENT")
-                                        .orElseThrow(() -> new RuntimeException("PATIENT role not found"));
-                                User newUser = User.builder()
-                                        .email(email)
-                                        .googleId(googleId)
-                                        .fullName(fullName)
-                                        .profilePictureUrl(pictureUrl)
-                                        .emailVerified(true)
-                                        .role(patientRole)
-                                        .isActive(true)
-                                        .build();
-                                return userRepository.save(newUser);
-                            });
-                });
+        String emailHash = EmailHashUtil.hash(email);
 
-        log.info("OAuth login successful: {}", email);
+        // Check if user exists by Google ID
+        Object[] googleUser = null;
+        try {
+            googleUser = (Object[]) entityManager.createNativeQuery(
+                    "SELECT u.id, u.full_name, u.profile_photo_url, r.role_code " +
+                    "FROM diet.users u JOIN diet.roles r ON u.role_id = r.id " +
+                    "WHERE u.google_id = :googleId")
+                    .setParameter("googleId", googleId)
+                    .getSingleResult();
+        } catch (Exception e) {
+            // User not found by Google ID, continue to check by email
+        }
 
-        // Generate tokens
+        if (googleUser != null) {
+            // User exists with this Google ID
+            return generateAuthResponseFromOAuth(((Number) googleUser[0]).longValue(), email, (String) googleUser[1],
+                    (String) googleUser[2], (String) googleUser[3]);
+        }
+
+        // Check if user exists by email (email_search)
+        Long existingUserId = null;
+        try {
+            existingUserId = ((Number) entityManager.createNativeQuery(
+                    "SELECT id FROM diet.users WHERE email_search = :emailHash")
+                    .setParameter("emailHash", emailHash)
+                    .getSingleResult()).longValue();
+        } catch (Exception e) {
+            // User not found by email, will create new user
+        }
+
+        if (existingUserId != null) {
+            // Link Google account to existing user
+            entityManager.createNativeQuery(
+                    "UPDATE diet.users SET google_id = :googleId, email_verified = true " +
+                    "WHERE id = :userId")
+                    .setParameter("googleId", googleId)
+                    .setParameter("userId", existingUserId)
+                    .executeUpdate();
+
+            // Get user details
+            Object[] user = (Object[]) entityManager.createNativeQuery(
+                    "SELECT u.full_name, u.profile_photo_url, r.role_code " +
+                    "FROM diet.users u JOIN diet.roles r ON u.role_id = r.id WHERE u.id = :userId")
+                    .setParameter("userId", existingUserId)
+                    .getSingleResult();
+
+            log.info("OAuth login - linked Google account to existing user: {}", email);
+            return generateAuthResponseFromOAuth(existingUserId, email, (String) user[0], (String) user[1], (String) user[2]);
+        }
+
+        // Create new user via native query
+        // Get PATIENT role ID
+        Long patientRoleId = ((Number) entityManager.createNativeQuery(
+                "SELECT id FROM diet.roles WHERE role_code = 'PATIENT'")
+                .getSingleResult()).longValue();
+
+        // Encrypt the email
+        com.dietician.util.EncryptionUtil encryptionUtil =
+                new com.dietician.util.EncryptionUtil("dGhpc2lzYXNlY3JldGtleWZvcmVuY3J5cHRpb24=");
+        String encryptedEmail = encryptionUtil.encrypt(email);
+
+        // Insert new user
+        entityManager.createNativeQuery("""
+                INSERT INTO diet.users (email, email_search, google_id, full_name, profile_photo_url,
+                    email_verified, role_id, is_active, created_by, created_date)
+                VALUES (:email, :emailHash, :googleId, :fullName, :profilePictureUrl,
+                    true, :roleId, true, 'OAUTH', now())
+                RETURNING id
+                """)
+                .setParameter("email", encryptedEmail)
+                .setParameter("emailHash", emailHash)
+                .setParameter("googleId", googleId)
+                .setParameter("fullName", fullName)
+                .setParameter("profilePictureUrl", pictureUrl)
+                .setParameter("roleId", patientRoleId)
+                .getSingleResult();
+
+        log.info("OAuth login - created new user: {}", email);
+        return generateAuthResponseFromOAuth(null, email, fullName, pictureUrl, "PATIENT");
+    }
+
+    private AuthDto.AuthResponse generateAuthResponseFromOAuth(Long userId, String email, String fullName,
+            String profilePictureUrl, String roleCode) {
+        // If userId is null, get it from the email
+        if (userId == null) {
+            String emailHash = EmailHashUtil.hash(email);
+            userId = ((Number) entityManager.createNativeQuery(
+                    "SELECT id FROM diet.users WHERE email_search = :emailHash")
+                    .setParameter("emailHash", emailHash)
+                    .getSingleResult()).longValue();
+        }
+
         String accessToken = tokenProvider.generateToken(email);
         String refreshToken = tokenProvider.generateRefreshToken(email);
+
+        AuthDto.UserInfo userInfo = new AuthDto.UserInfo();
+        userInfo.setId(userId);
+        userInfo.setEmail(email);
+        userInfo.setFullName(fullName);
+        userInfo.setRole(roleCode);
+        userInfo.setEmailVerified(true);
+        userInfo.setProfilePictureUrl(profilePictureUrl);
 
         return new AuthDto.AuthResponse(
                 accessToken,
                 refreshToken,
                 86400000L,
-                mapToUserInfo(user)
+                userInfo
         );
     }
 
