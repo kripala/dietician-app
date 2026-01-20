@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
  * REST API endpoints for user profile operations
@@ -51,9 +52,20 @@ public class UserProfileController {
     public ResponseEntity<UserProfileDto.PhotoUploadResponse> uploadPhoto(
             @RequestParam Long userId,
             @RequestParam("file") MultipartFile file) {
-        log.info("Uploading photo for user: {}", userId);
+        log.info("Uploading photo for user: {}, file size: {} bytes", userId, file.getSize());
         UserProfileDto.PhotoUploadResponse response = profileService.uploadProfilePhoto(userId, file);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Handle file size exceeded exception
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<UserProfileDto.MessageResponse> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
+        log.warn("File upload size exceeded: {}", ex.getMessage());
+        return ResponseEntity.badRequest().body(
+                new UserProfileDto.MessageResponse("File size too large. Maximum allowed size is 5MB.")
+        );
     }
 
     /**
@@ -62,6 +74,13 @@ public class UserProfileController {
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<UserProfileDto.MessageResponse> handleRuntimeException(RuntimeException ex) {
         log.error("Error occurred during profile request", ex);
-        return ResponseEntity.badRequest().body(new UserProfileDto.MessageResponse(ex.getMessage()));
+
+        // Provide user-friendly message for common errors
+        String message = ex.getMessage();
+        if (message != null && message.contains("ClassCastException")) {
+            message = "An error occurred while processing your request. Please try again.";
+        }
+
+        return ResponseEntity.badRequest().body(new UserProfileDto.MessageResponse(message));
     }
 }

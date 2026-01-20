@@ -5,6 +5,7 @@ import { RoleProvider } from './src/context/RoleContext';
 import { ThemeProvider } from './src/theme/ThemeProvider';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
           <RoleProvider>
             <AppNavigator />
             <StatusBar style="auto" />
+            <Toast />
           </RoleProvider>
         </AuthProvider>
       </ThemeProvider>

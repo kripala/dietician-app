@@ -71,12 +71,12 @@ public class UserProfileService {
 
             // Get current email hash to check if email changed
             try {
-                Object[] userData = (Object[]) entityManager.createNativeQuery(
+                Object result = entityManager.createNativeQuery(
                         "SELECT email_search FROM diet.users WHERE id = :userId")
                         .setParameter("userId", userId)
                         .getSingleResult();
-                if (userData != null && userData[0] != null) {
-                    String currentEmailHash = (String) userData[0];
+                if (result != null) {
+                    String currentEmailHash = (String) result;
                     String newEmailHash = EmailHashUtil.hash(normalizedEmail);
                     if (!currentEmailHash.equals(newEmailHash)) {
                         // Email changed, update it

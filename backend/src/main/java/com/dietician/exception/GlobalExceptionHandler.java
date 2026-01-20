@@ -9,6 +9,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.stream.Collectors;
 
@@ -43,12 +44,34 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handle file size exceeded exception
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<AuthDto.MessageResponse> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
+        log.warn("File upload size exceeded: {}", ex.getMessage());
+        return ResponseEntity.badRequest().body(
+                new AuthDto.MessageResponse("File size too large. Maximum allowed size is 5MB.")
+        );
+    }
+
+    /**
      * Handle runtime exceptions (business logic errors)
      */
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<AuthDto.MessageResponse> handleRuntimeException(RuntimeException ex) {
         log.error("Runtime error: {}", ex.getMessage(), ex);
-        return ResponseEntity.badRequest().body(new AuthDto.MessageResponse(ex.getMessage()));
+
+        // Provide user-friendly message for common errors
+        String message = ex.getMessage();
+        if (message != null) {
+            if (message.contains("ClassCastException")) {
+                message = "An error occurred while processing your request. Please try again.";
+            } else if (message.contains("ClassCastException")) {
+                message = "An error occurred while processing your request. Please try again.";
+            }
+        }
+
+        return ResponseEntity.badRequest().body(new AuthDto.MessageResponse(message));
     }
 
     /**

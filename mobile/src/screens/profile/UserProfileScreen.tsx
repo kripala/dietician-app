@@ -8,7 +8,6 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ActivityIndicator,
   ScrollView,
   Image,
@@ -32,6 +31,7 @@ import {
 import profileService from '../../services/profileService';
 import { getErrorMessage } from '../../utils/errorHandler';
 import AppHeader from '../../components/AppHeader';
+import { showToast } from '../../utils/toast';
 
 // Conditionally import expo-image-picker only for native platforms
 let ImagePicker: any = null;
@@ -114,7 +114,7 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
       if (Platform.OS === 'web') {
         window.alert(`Error: ${errorMessage}`);
       } else {
-        Alert.alert('Error', errorMessage);
+        showToast.error(errorMessage);
       }
     } finally {
       setLoading(false);
@@ -148,9 +148,9 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
       }
     } else {
       if (Platform.OS === 'web') {
-        window.alert('Error', 'Image picker not available');
+        showToast.error('Image picker not available');
       } else {
-        Alert.alert('Error', 'Image picker not available');
+        showToast.error('Image picker not available');
       }
     }
   };
@@ -164,7 +164,7 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
       // Update profile picture URL in auth context immediately
       updateProfilePictureUrl(response.profilePhotoUrl);
       await loadProfile();
-      window.alert('Success: Profile photo updated successfully');
+      showToast.success('Profile photo updated successfully');
     } catch (error: any) {
       const errorMessage = getErrorMessage(error, 'Failed to upload photo');
       window.alert(`Error: ${errorMessage}`);
@@ -183,16 +183,16 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
       updateProfilePictureUrl(response.profilePhotoUrl);
       await loadProfile();
       if (Platform.OS === 'web') {
-        window.alert('Success: Profile photo updated successfully');
+        showToast.success('Profile photo updated successfully');
       } else {
-        Alert.alert('Success', 'Profile photo updated successfully');
+        showToast.success('Profile photo updated successfully');
       }
     } catch (error: any) {
       const errorMessage = getErrorMessage(error, 'Failed to upload photo');
       if (Platform.OS === 'web') {
         window.alert(`Error: ${errorMessage}`);
       } else {
-        Alert.alert('Error', errorMessage);
+        showToast.error(errorMessage);
       }
     } finally {
       setSaving(false);
@@ -203,45 +203,45 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
     // Validation
     if (!formData.firstName.trim()) {
       if (Platform.OS === 'web') {
-        window.alert('Error: First name is required');
+        showToast.error('First name is required');
       } else {
-        Alert.alert('Error', 'First name is required');
+        showToast.error('First name is required');
       }
       return;
     }
 
     if (!formData.lastName.trim()) {
       if (Platform.OS === 'web') {
-        window.alert('Error: Last name is required');
+        showToast.error('Last name is required');
       } else {
-        Alert.alert('Error', 'Last name is required');
+        showToast.error('Last name is required');
       }
       return;
     }
 
     if (!formData.dateOfBirth) {
       if (Platform.OS === 'web') {
-        window.alert('Error: Date of birth is required');
+        showToast.error('Date of birth is required');
       } else {
-        Alert.alert('Error', 'Date of birth is required');
+        showToast.error('Date of birth is required');
       }
       return;
     }
 
     if (!formData.gender) {
       if (Platform.OS === 'web') {
-        window.alert('Error: Gender is required');
+        showToast.error('Gender is required');
       } else {
-        Alert.alert('Error', 'Gender is required');
+        showToast.error('Gender is required');
       }
       return;
     }
 
     if (!formData.mobileNumber.trim()) {
       if (Platform.OS === 'web') {
-        window.alert('Error: Mobile number is required');
+        showToast.error('Mobile number is required');
       } else {
-        Alert.alert('Error', 'Mobile number is required');
+        showToast.error('Mobile number is required');
       }
       return;
     }
@@ -281,16 +281,16 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
       setEditing(false);
 
       if (Platform.OS === 'web') {
-        window.alert('Success: Profile updated successfully');
+        showToast.success('Profile updated successfully');
       } else {
-        Alert.alert('Success', 'Profile updated successfully');
+        showToast.success('Profile updated successfully');
       }
     } catch (error: any) {
       const errorMessage = getErrorMessage(error, 'Failed to update profile');
       if (Platform.OS === 'web') {
         window.alert(`Error: ${errorMessage}`);
       } else {
-        Alert.alert('Error', errorMessage);
+        showToast.error(errorMessage);
       }
     } finally {
       setSaving(false);
