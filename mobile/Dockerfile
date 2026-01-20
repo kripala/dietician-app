@@ -5,13 +5,17 @@ LABEL description="Dietician Frontend (React Native Web)"
 # Install wget for health check
 RUN apk add --no-cache wget
 
+# Set environment
+ENV NODE_ENV=production
+ENV EXPO_NO_DOTENV=1
+
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm ci --prefer-offline --no-audit
 
 # Copy source code and server files
 COPY . .
@@ -19,8 +23,8 @@ COPY . .
 # Install serve globally for production
 RUN npm install -g serve
 
-# Build web bundle
-RUN npx expo export --platform web
+# Build web bundle - use explicit output directory
+RUN npx expo export --platform web --output-dir dist
 
 # Expose port
 EXPOSE 8081
