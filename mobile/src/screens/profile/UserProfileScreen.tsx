@@ -111,11 +111,7 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
       });
     } catch (error: any) {
       const errorMessage = getErrorMessage(error, 'Failed to load profile');
-      if (Platform.OS === 'web') {
-        window.alert(`Error: ${errorMessage}`);
-      } else {
-        showToast.error(errorMessage);
-      }
+      showToast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -167,7 +163,7 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
       showToast.success('Profile photo updated successfully');
     } catch (error: any) {
       const errorMessage = getErrorMessage(error, 'Failed to upload photo');
-      window.alert(`Error: ${errorMessage}`);
+      showToast.error(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -189,11 +185,7 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
       }
     } catch (error: any) {
       const errorMessage = getErrorMessage(error, 'Failed to upload photo');
-      if (Platform.OS === 'web') {
-        window.alert(`Error: ${errorMessage}`);
-      } else {
-        showToast.error(errorMessage);
-      }
+      showToast.error(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -287,11 +279,7 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
       }
     } catch (error: any) {
       const errorMessage = getErrorMessage(error, 'Failed to update profile');
-      if (Platform.OS === 'web') {
-        window.alert(`Error: ${errorMessage}`);
-      } else {
-        showToast.error(errorMessage);
-      }
+      showToast.error(errorMessage);
     } finally {
       setSaving(false);
     }
