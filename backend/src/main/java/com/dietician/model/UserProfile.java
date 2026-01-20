@@ -11,6 +11,7 @@ import java.time.LocalDate;
 
 /**
  * Entity representing user demographic profile information
+ * Has userId field to avoid loading User entity when only ID is needed
  */
 @Entity
 @Table(name = "user_profiles")
@@ -24,6 +25,13 @@ public class UserProfile extends AuditableEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @SequenceGenerator(name = "user_profiles_id_seq", sequenceName = "user_profiles_id_seq", allocationSize = 1)
     private Long id;
+
+    /**
+     * Direct user ID reference to avoid loading User entity with encrypted email field
+     * This is insertable=false, updatable=false as it's mapped by the user relationship
+     */
+    @Column(name = "user_id", insertable = false, updatable = false)
+    private Long userId;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false, unique = true)

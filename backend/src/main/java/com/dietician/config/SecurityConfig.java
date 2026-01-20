@@ -56,6 +56,7 @@ public class SecurityConfig {
                                 "/auth/logout",
                                 "/auth/health",
                                 "/auth/oauth2/**",
+                                "/admin/roles",  // Public for dynamic frontend rendering
                                 "/public/**",
                                 "/files/**",
                                 "/error"

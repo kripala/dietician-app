@@ -17,6 +17,7 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import config from '../../config';
 import {
   User,
   Camera,
@@ -45,6 +46,7 @@ if (Platform.OS !== 'web') {
 type Props = NativeStackScreenProps<RootStackParamList, 'UserProfile'>;
 
 interface FormData {
+  email: string;
   firstName: string;
   middleName: string;
   lastName: string;
@@ -59,6 +61,7 @@ interface FormData {
 }
 
 const initialFormData: FormData = {
+  email: '',
   firstName: '',
   middleName: '',
   lastName: '',
@@ -73,7 +76,7 @@ const initialFormData: FormData = {
 };
 
 export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
-  const { user } = useAuth();
+  const { user, updateProfilePictureUrl, updateUserEmail, updateAuthTokens } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -91,8 +94,9 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
       const data = await profileService.getProfile(user.id);
       setProfile(data);
 
-      // Populate form with existing data
+      // Populate form with existing data - use email from user context
       setFormData({
+        email: user.email || '',
         firstName: data.firstName || '',
         middleName: data.middleName || '',
         lastName: data.lastName || '',
@@ -156,7 +160,9 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
 
     try {
       setSaving(true);
-      await profileService.uploadPhoto(user.id, file);
+      const response = await profileService.uploadPhoto(user.id, file);
+      // Update profile picture URL in auth context immediately
+      updateProfilePictureUrl(response.profilePhotoUrl);
       await loadProfile();
       window.alert('Success: Profile photo updated successfully');
     } catch (error: any) {
@@ -172,7 +178,9 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
 
     try {
       setSaving(true);
-      await profileService.uploadPhotoFromUri(user.id, uri);
+      const response = await profileService.uploadPhotoFromUri(user.id, uri);
+      // Update profile picture URL in auth context immediately
+      updateProfilePictureUrl(response.profilePhotoUrl);
       await loadProfile();
       if (Platform.OS === 'web') {
         window.alert('Success: Profile photo updated successfully');
@@ -242,7 +250,12 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
       setSaving(true);
       Keyboard.dismiss();
 
-      await profileService.updateProfile(user!.id, {
+      // Store original email to check if changed
+      const originalEmail = user?.email;
+      const newEmail = formData.email || undefined;
+
+      const response: any = await profileService.updateProfile(user!.id, {
+        email: newEmail,
         firstName: formData.firstName,
         middleName: formData.middleName || undefined,
         lastName: formData.lastName,
@@ -255,6 +268,14 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
         addressLine: formData.addressLine || undefined,
         pincode: formData.pincode || undefined,
       });
+
+      // Update auth tokens if email was changed (backend returns new tokens)
+      if (response?.emailChanged && response?.accessToken && response?.refreshToken && newEmail) {
+        await updateAuthTokens(newEmail, response.accessToken, response.refreshToken);
+      } else if (newEmail && originalEmail && newEmail !== originalEmail) {
+        // Fallback: just update email if no tokens returned
+        await updateUserEmail(newEmail);
+      }
 
       await loadProfile();
       setEditing(false);
@@ -277,11 +298,15 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const renderProfilePhoto = () => {
+    // Derive base URL from API_BASE_URL (remove /api suffix)
+    const apiBaseUrl = config.API_BASE_URL;
+    const baseUrl = apiBaseUrl.replace('/api', '');
+
     return (
       <View style={styles.profilePhotoContainer}>
         {profile?.profilePhotoUrl ? (
           <Image
-            source={{ uri: `http://localhost:8080${profile.profilePhotoUrl}` }}
+            source={{ uri: `${baseUrl}${profile.profilePhotoUrl}` }}
             style={styles.profilePhoto}
           />
         ) : (
@@ -315,7 +340,7 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.infoRow}>
             <Mail size={20} color="#6B7280" />
             <Text style={styles.infoLabel}>Email</Text>
-            <Text style={styles.infoValue}>{profile?.email || '-'}</Text>
+            <Text style={styles.infoValue}>{user?.email || '-'}</Text>
           </View>
 
           <View style={styles.infoRow}>
@@ -380,6 +405,20 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
         {renderProfilePhoto()}
 
         <Text style={styles.sectionTitle}>Personal Information</Text>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            style={[styles.input, styles.readOnlyInput]}
+            value={formData.email}
+            onChangeText={(text) => setFormData({ ...formData, email: text })}
+            placeholder="Email address"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            editable={true}
+          />
+          <Text style={styles.hintText}>This email is used as your username for login</Text>
+        </View>
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>First Name *</Text>
@@ -690,6 +729,15 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     color: '#111827',
+  },
+  readOnlyInput: {
+    backgroundColor: '#F3F4F6',
+  },
+  hintText: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 4,
+    marginLeft: 2,
   },
   row: {
     flexDirection: 'row',

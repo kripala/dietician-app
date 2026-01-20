@@ -22,7 +22,8 @@ type Props = NativeStackScreenProps<RootStackParamList, 'UserList'>;
 
 const UserListScreen: React.FC<Props> = ({ route, navigation }) => {
   const { role } = route.params;
-  const { hasAction } = useAuth();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
 
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +41,7 @@ const UserListScreen: React.FC<Props> = ({ route, navigation }) => {
   const loadUsers = async (pageNumber = 0) => {
     try {
       setLoading(true);
-      const response = await adminService.getUsers({ role, page: pageNumber, size: 10 });
+      const response = await adminService.getUsers(role, pageNumber, 10);
 
       if (pageNumber === 0) {
         setUsers(response.content);
@@ -82,11 +83,7 @@ const UserListScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   const handleToggleStatus = async (userId: number, currentStatus: boolean, fullName: string) => {
-    const activateAction = role === 'PATIENT' ? 'ACTIVATE_PATIENT' : 'ACTIVATE_DIETICIAN';
-    const deactivateAction = role === 'PATIENT' ? 'DEACTIVATE_PATIENT' : 'DEACTIVATE_DIETICIAN';
-    const action = currentStatus ? deactivateAction : activateAction;
-
-    if (!hasAction(action)) {
+    if (!isAdmin) {
       Alert.alert('Access Denied', 'You do not have permission to perform this action');
       return;
     }
@@ -113,9 +110,7 @@ const UserListScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   const handleResetPassword = async (userId: number, fullName: string) => {
-    const action = role === 'PATIENT' ? 'RESET_PATIENT_PASSWORD' : 'RESET_DIETICIAN_PASSWORD';
-
-    if (!hasAction(action)) {
+    if (!isAdmin) {
       Alert.alert('Access Denied', 'You do not have permission to perform this action');
       return;
     }
@@ -142,9 +137,7 @@ const UserListScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   const handleDeleteUser = async (userId: number, fullName: string) => {
-    const action = role === 'PATIENT' ? 'DELETE_PATIENT' : 'DELETE_DIETICIAN';
-
-    if (!hasAction(action)) {
+    if (!isAdmin) {
       Alert.alert('Access Denied', 'You do not have permission to perform this action');
       return;
     }
@@ -182,7 +175,7 @@ const UserListScreen: React.FC<Props> = ({ route, navigation }) => {
           <Text style={styles.userName}>{item.fullName || 'Unknown'}</Text>
           <Text style={styles.userEmail}>{item.email}</Text>
           <View style={styles.badges}>
-            <View style={[styles.statusBadge, { backgroundColor: item.isActive ? '#10B981' : '#EF4444' }]}>
+            <View style={[styles.statusBadge, { backgroundColor: item.isActive ? '#6366f1' : '#EF4444' }]}>
               <Text style={styles.statusBadgeText}>{item.isActive ? 'Active' : 'Inactive'}</Text>
             </View>
             <View style={[styles.statusBadge, { backgroundColor: item.emailVerified ? '#3B82F6' : '#F59E0B' }]}>
@@ -192,8 +185,7 @@ const UserListScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
       </View>
       <View style={styles.actionButtons}>
-        {(hasAction(role === 'PATIENT' ? 'ACTIVATE_PATIENT' : 'ACTIVATE_DIETICIAN') ||
-          hasAction(role === 'PATIENT' ? 'DEACTIVATE_PATIENT' : 'DEACTIVATE_DIETICIAN')) && (
+        {isAdmin && (
           <TouchableOpacity
             style={[styles.actionButton, item.isActive ? styles.deactivateBtn : styles.activateBtn]}
             onPress={() => handleToggleStatus(item.id, item.isActive, item.fullName || '')}
@@ -201,7 +193,7 @@ const UserListScreen: React.FC<Props> = ({ route, navigation }) => {
             {item.isActive ? <EyeOff size={18} color="#fff" /> : <Eye size={18} color="#fff" />}
           </TouchableOpacity>
         )}
-        {hasAction(role === 'PATIENT' ? 'RESET_PATIENT_PASSWORD' : 'RESET_DIETICIAN_PASSWORD') && (
+        {isAdmin && (
           <TouchableOpacity
             style={[styles.actionButton, styles.resetBtn]}
             onPress={() => handleResetPassword(item.id, item.fullName || '')}
@@ -209,7 +201,7 @@ const UserListScreen: React.FC<Props> = ({ route, navigation }) => {
             <Lock size={18} color="#fff" />
           </TouchableOpacity>
         )}
-        {hasAction(role === 'PATIENT' ? 'DELETE_PATIENT' : 'DELETE_DIETICIAN') && (
+        {isAdmin && (
           <TouchableOpacity
             style={[styles.actionButton, styles.deleteBtn]}
             onPress={() => handleDeleteUser(item.id, item.fullName || '')}
@@ -230,7 +222,7 @@ const UserListScreen: React.FC<Props> = ({ route, navigation }) => {
     </View>
   );
 
-  const canCreate = role === 'PATIENT' ? hasAction('CREATE_PATIENT') : hasAction('CREATE_DIETICIAN');
+  const canCreate = isAdmin;
 
   if (loading && users.length === 0) {
     return (
@@ -308,7 +300,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 8,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#E8F5E9',
     borderRadius: 12,
   },
   headerCenter: {
@@ -425,7 +417,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activateBtn: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#6366f1',
   },
   deactivateBtn: {
     backgroundColor: '#F59E0B',

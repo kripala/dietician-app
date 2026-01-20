@@ -8,6 +8,7 @@ import {
   UserResponse,
   UserSummary,
   Action,
+  Role,
   CreateUserRequest,
   UpdateUserRequest,
   MessageResponse,
@@ -97,6 +98,14 @@ class AdminService {
    */
   async getAllActions(): Promise<Action[]> {
     return apiClient.get(`${this.baseUrl}/actions`);
+  }
+
+  /**
+   * Get all available roles from backend
+   * This allows the frontend to be dynamic and adapt to role changes
+   */
+  async getAllRoles(): Promise<Role[]> {
+    return apiClient.get<Role[]>(`${this.baseUrl}/roles`);
   }
 
   /**

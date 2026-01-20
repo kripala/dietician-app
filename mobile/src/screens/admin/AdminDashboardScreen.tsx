@@ -7,6 +7,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
 import { RootStackParamList } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import AppHeader from '../../components/AppHeader';
@@ -30,28 +31,66 @@ const ModuleCard: React.FC<ModuleCardProps> = ({
   color,
   onPress,
   disabled = false,
-}) => (
-  <TouchableOpacity
-    style={[styles.moduleCard, disabled && styles.disabledCard]}
-    onPress={onPress}
-    disabled={disabled}
-  >
-    <View style={[styles.iconContainer, { backgroundColor: color + '20' }]}>
-      {icon}
-    </View>
-    <Text style={styles.moduleTitle}>{title}</Text>
-    <Text style={styles.moduleDescription}>{description}</Text>
-  </TouchableOpacity>
-);
+}) => {
+  const handlePress = () => {
+    console.log('ModuleCard pressed:', title);
+    if (onPress && !disabled) {
+      onPress();
+    }
+  };
 
-const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
-  const { user, hasAction } = useAuth();
+  return (
+    <TouchableOpacity
+      style={[styles.moduleCard, disabled && styles.disabledCard]}
+      onPress={handlePress}
+      disabled={disabled}
+      activeOpacity={0.7}
+    >
+      <View style={[styles.iconContainer, { backgroundColor: color + '20' }]}>
+        {icon}
+      </View>
+      <Text style={styles.moduleTitle}>{title}</Text>
+      <Text style={styles.moduleDescription}>{description}</Text>
+    </TouchableOpacity>
+  );
+};
 
-  const canViewPatients = hasAction('VIEW_PATIENT');
-  const canViewDieticians = hasAction('VIEW_DIETICIAN');
-  const canCreatePatient = hasAction('CREATE_PATIENT');
-  const canCreateDietician = hasAction('CREATE_DIETICIAN');
-  const canManageRoles = hasAction('MANAGE_ROLES');
+const AdminDashboardScreen: React.FC<Props> = () => {
+  const navigation = useNavigation();
+  const { user } = useAuth();
+
+  // Temporarily enable all features for admin users
+  // TODO: Implement proper action-based permissions once backend returns actions array
+  const canViewPatients = user?.role === 'ADMIN';
+  const canViewDieticians = user?.role === 'ADMIN';
+  const canCreatePatient = user?.role === 'ADMIN';
+  const canCreateDietician = user?.role === 'ADMIN';
+  const canManageRoles = user?.role === 'ADMIN';
+
+  const navigateToPatients = () => {
+    console.log('Navigating to UserList with role: PATIENT');
+    (navigation as any).push('UserList', { role: 'PATIENT' });
+  };
+
+  const navigateToDieticians = () => {
+    console.log('Navigating to UserList with role: DIETICIAN');
+    (navigation as any).push('UserList', { role: 'DIETICIAN' });
+  };
+
+  const navigateToCreatePatient = () => {
+    console.log('Navigating to CreateUser with role: PATIENT');
+    (navigation as any).push('CreateUser', { role: 'PATIENT' });
+  };
+
+  const navigateToCreateDietician = () => {
+    console.log('Navigating to CreateUser with role: DIETICIAN');
+    (navigation as any).push('CreateUser', { role: 'DIETICIAN' });
+  };
+
+  const navigateToRoleManagement = () => {
+    console.log('Navigating to RoleManagement');
+    (navigation as any).push('RoleManagement');
+  };
 
   return (
     <View style={styles.container}>
@@ -67,8 +106,8 @@ const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
         {/* Stats Section */}
         <View style={styles.statsSection}>
           <View style={styles.statCard}>
-            <View style={[styles.statIcon, { backgroundColor: '#EEF2FF' }]}>
-              <Users size={24} color="#6366f1" />
+            <View style={[styles.statIcon, { backgroundColor: '#E8F5E9' }]}>
+              <Users size={24} color="#667eea" />
             </View>
             <View style={styles.statInfo}>
               <Text style={styles.statValue}>Active Users</Text>
@@ -83,17 +122,17 @@ const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
           <ModuleCard
             title="Patients"
             description="View and manage patient records"
-            icon={<Users size={32} color="#10B981" />}
-            color="#10B981"
-            onPress={() => navigation.navigate('UserList' as never, { role: 'PATIENT' } as never)}
+            icon={<Users size={32} color="#667eea" />}
+            color="#667eea"
+            onPress={navigateToPatients}
             disabled={!canViewPatients}
           />
           <ModuleCard
             title="Dieticians"
             description="View and manage dietician records"
-            icon={<Users size={32} color="#6366f1" />}
-            color="#6366f1"
-            onPress={() => navigation.navigate('UserList' as never, { role: 'DIETICIAN' } as never)}
+            icon={<Users size={32} color="#667eea" />}
+            color="#667eea"
+            onPress={navigateToDieticians}
             disabled={!canViewDieticians}
           />
         </View>
@@ -107,18 +146,18 @@ const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 <ModuleCard
                   title="Add Patient"
                   description="Create a new patient account"
-                  icon={<UserPlus size={32} color="#10B981" />}
-                  color="#10B981"
-                  onPress={() => navigation.navigate('CreateUser' as never, { role: 'PATIENT' } as never)}
+                  icon={<UserPlus size={32} color="#667eea" />}
+                  color="#667eea"
+                  onPress={navigateToCreatePatient}
                 />
               )}
               {canCreateDietician && (
                 <ModuleCard
                   title="Add Dietician"
                   description="Create a new dietician account"
-                  icon={<UserPlus size={32} color="#6366f1" />}
-                  color="#6366f1"
-                  onPress={() => navigation.navigate('CreateUser' as never, { role: 'DIETICIAN' } as never)}
+                  icon={<UserPlus size={32} color="#667eea" />}
+                  color="#667eea"
+                  onPress={navigateToCreateDietician}
                 />
               )}
             </View>
@@ -135,7 +174,7 @@ const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 description="Manage roles and permissions"
                 icon={<Settings size={32} color="#F59E0B" />}
                 color="#F59E0B"
-                onPress={() => navigation.navigate('RoleManagement' as never)}
+                onPress={navigateToRoleManagement}
               />
             </View>
           </>
@@ -176,7 +215,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -222,7 +261,7 @@ const styles = StyleSheet.create({
   moduleCard: {
     width: '48%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 20,
     margin: 5,
     shadowColor: '#000',

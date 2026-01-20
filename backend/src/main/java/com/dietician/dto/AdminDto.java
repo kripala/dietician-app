@@ -156,4 +156,17 @@ public class AdminDto {
         private String roleCode;
         private List<String> actions;
     }
+
+    /**
+     * Response for role list - used for dynamic role rendering in frontend.
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RoleResponse {
+        private Long id;
+        private String roleCode;
+        private String roleName;
+    }
 }

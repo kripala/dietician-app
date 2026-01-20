@@ -7,7 +7,7 @@ export interface User {
   id: number;
   email: string;
   fullName: string | null;
-  role: 'ADMIN' | 'DIETICIAN' | 'PATIENT';  // Backend returns role as a string
+  role: string;  // Backend returns role as a string (dynamic, not hardcoded)
   actions?: string[];
   emailVerified: boolean;
   profilePictureUrl: string | null;
@@ -15,7 +15,7 @@ export interface User {
 
 export interface Role {
   id: number;
-  roleCode: 'ADMIN' | 'DIETICIAN' | 'PATIENT';
+  roleCode: string;  // Dynamic role code from backend
   roleName: string;
 }
 
@@ -56,13 +56,13 @@ export interface Action {
 export interface CreateUserRequest {
   email: string;
   fullName: string;
-  role: 'PATIENT' | 'DIETICIAN' | 'ADMIN';
+  role: string;  // Dynamic role code from backend
   password?: string;
 }
 
 export interface UpdateUserRequest {
   fullName?: string;
-  role?: 'PATIENT' | 'DIETICIAN' | 'ADMIN';
+  role?: string;  // Dynamic role code from backend
 }
 
 export interface PaginatedUsersResponse {
@@ -134,9 +134,14 @@ export interface UserProfile {
   pincode: string | null;
   profilePhotoUrl: string | null;
   emailVerified: boolean;
+  // New JWT tokens when email is updated
+  accessToken?: string;
+  refreshToken?: string;
+  emailChanged?: boolean;
 }
 
 export interface UpdateProfileRequest {
+  email?: string;
   firstName: string;
   middleName?: string;
   lastName: string;
@@ -165,8 +170,8 @@ export type RootStackParamList = {
   UserProfile: undefined;
   ResetPassword: undefined;
   AdminDashboard: undefined;
-  UserList: { role: 'PATIENT' | 'DIETICIAN' };
-  CreateUser: { role: 'PATIENT' | 'DIETICIAN' };
+  UserList: { role: string };  // Dynamic role code
+  CreateUser: { role: string };  // Dynamic role code
   EditUser: { userId: number };
   RoleManagement: undefined;
 };

@@ -31,6 +31,24 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByGoogleId(String googleId);
 
     // ============================================
+    // Native queries to avoid encrypted email field
+    // These are needed when existing encrypted data
+    // cannot be decrypted with current key
+    // ============================================
+
+    /**
+     * Find user ID by email search (avoids encrypted email field).
+     */
+    @Query(value = "SELECT id FROM diet.users WHERE email_search = :emailSearch", nativeQuery = true)
+    Optional<Long> findIdByEmailSearch(@Param("emailSearch") String emailSearch);
+
+    /**
+     * Check if user exists by email search (returns boolean, avoids User entity).
+     */
+    @Query(value = "SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END FROM diet.users WHERE email_search = :emailSearch", nativeQuery = true)
+    boolean existsByEmailSearchNative(@Param("emailSearch") String emailSearch);
+
+    // ============================================
     // Admin / RBAC Queries
     // ============================================
 

@@ -1,6 +1,7 @@
 package com.dietician.service;
 
 import com.dietician.dto.AdminDto.*;
+import com.dietician.dto.AdminDto.RoleResponse;
 import com.dietician.dto.AuthDto.MessageResponse;
 import com.dietician.exception.ResourceNotFoundException;
 import com.dietician.model.*;

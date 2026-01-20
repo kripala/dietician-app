@@ -159,4 +159,14 @@ public class AdminController {
                         .build()
         );
     }
+
+    /**
+     * Get all available roles.
+     * Public endpoint - roles are needed for UI rendering
+     */
+    @GetMapping("/roles")
+    public ResponseEntity<List<RoleResponse>> getAllRoles() {
+        log.info("GET /admin/roles - fetching all roles");
+        return ResponseEntity.ok(adminService.getAllRoles());
+    }
 }

@@ -95,6 +95,31 @@ class AuthService {
     }
 
     /**
+     * Update user data in storage
+     */
+    async saveUserData(user: User): Promise<void> {
+        try {
+            await AsyncStorage.setItem(config.STORAGE_KEYS.USER_DATA, JSON.stringify(user));
+        } catch (error) {
+            console.error('Error saving user data:', error);
+        }
+    }
+
+    /**
+     * Store new access and refresh tokens
+     */
+    async storeTokens(accessToken: string, refreshToken: string): Promise<void> {
+        try {
+            await AsyncStorage.multiSet([
+                [config.STORAGE_KEYS.ACCESS_TOKEN, accessToken],
+                [config.STORAGE_KEYS.REFRESH_TOKEN, refreshToken],
+            ]);
+        } catch (error) {
+            console.error('Error storing tokens:', error);
+        }
+    }
+
+    /**
      * Check if user is authenticated
      */
     async isAuthenticated(): Promise<boolean> {

@@ -42,7 +42,7 @@ public class InitialUserSeeder implements CommandLineRunner {
 
     private void seedUser(String email, String rawPassword, String fullName, String roleCode) {
         String emailHash = EmailHashUtil.hash(email);
-        if (userRepository.existsByEmailSearch(emailHash)) {
+        if (userRepository.existsByEmailSearchNative(emailHash)) {
             log.debug("Seed user {} already exists. Skipping creation.", email);
             return;
         }

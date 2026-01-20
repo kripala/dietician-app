@@ -15,6 +15,10 @@ public class UserProfileDto {
      */
     @Data
     public static class UpdateProfileRequest {
+        @Email(message = "Invalid email format")
+        @Size(max = 255, message = "Email must not exceed 255 characters")
+        private String email;
+
         @NotBlank(message = "First name is required")
         @Size(max = 100, message = "First name must not exceed 100 characters")
         private String firstName;
@@ -57,6 +61,7 @@ public class UserProfileDto {
 
     /**
      * Response DTO for user profile
+     * Includes new JWT tokens when email is updated
      */
     @Data
     public static class ProfileResponse {
@@ -79,6 +84,10 @@ public class UserProfileDto {
         private String pincode;
         private String profilePhotoUrl;
         private Boolean emailVerified;
+        // New tokens when email is updated
+        private String accessToken;
+        private String refreshToken;
+        private Boolean emailChanged;
     }
 
     /**

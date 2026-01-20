@@ -1,8 +1,7 @@
 package com.dietician.security;
 
-import com.dietician.model.User;
-import com.dietician.repository.RoleActionRepository;
-import com.dietician.repository.UserRepository;
+import com.dietician.util.EmailHashUtil;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.PermissionEvaluator;
@@ -14,6 +13,7 @@ import java.io.Serializable;
 /**
  * Custom PermissionEvaluator for action-based access control.
  * Checks if a user's role has a specific action permission.
+ * Uses native queries to avoid encrypted email field issues.
  *
  * Usage in controllers: @PreAuthorize("hasPermission(#id, 'ACTION_CODE')")
  */
@@ -22,8 +22,7 @@ import java.io.Serializable;
 @RequiredArgsConstructor
 public class CustomPermissionEvaluator implements PermissionEvaluator {
 
-    private final RoleActionRepository roleActionRepository;
-    private final UserRepository userRepository;
+    private final EntityManager entityManager;
 
     /**
      * Check if the authenticated user has a specific action permission.
@@ -38,20 +37,25 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
         String email = authentication.getName();
         String actionCode = permission.toString();
 
-        // Get user from database to check role
-        User user = userRepository.findByEmailSearch(com.dietician.util.EmailHashUtil.hash(email)).orElse(null);
+        // Use native query to check if user's role has the action
+        // This avoids loading the User entity with encrypted email
+        String query = """
+            SELECT CASE WHEN COUNT(ra) > 0 THEN true ELSE false END
+            FROM diet.role_actions ra
+            JOIN diet.users u ON u.role_id = ra.role_id
+            WHERE u.email_search = :emailHash
+            AND ra.action_id = (SELECT id FROM diet.actions WHERE action_code = :actionCode)
+            AND u.is_active = true
+            """;
 
-        if (user == null || !Boolean.TRUE.equals(user.getIsActive())) {
-            return false;
-        }
+        Boolean hasPermission = (Boolean) entityManager.createNativeQuery(query)
+                .setParameter("emailHash", EmailHashUtil.hash(email))
+                .setParameter("actionCode", actionCode)
+                .getSingleResult();
 
-        Long roleId = user.getRole().getId();
-        boolean hasPermission = roleActionRepository.existsByRoleIdAndActionActionCode(roleId, actionCode);
+        log.debug("Permission check: user={}, action={}, result={}", email, actionCode, hasPermission);
 
-        log.debug("Permission check: user={}, role={}, action={}, result={}",
-                email, roleId, actionCode, hasPermission);
-
-        return hasPermission;
+        return Boolean.TRUE.equals(hasPermission);
     }
 
     /**

@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Image, Dimensions } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types';
@@ -7,13 +7,13 @@ import { Apple, ChevronRight } from 'lucide-react-native';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Welcome'>;
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
 const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
     return (
         <View style={styles.container}>
             <LinearGradient
-                colors={['#667eea', '#764ba2']}
+                colors={['#667eea', '#66BB6A']}
                 style={styles.gradient}
             >
                 <View style={styles.content}>

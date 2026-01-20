@@ -12,6 +12,9 @@ interface AuthContextType {
     resendOtp: (email: string) => Promise<{ message: string }>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
+    updateProfilePictureUrl: (photoUrl: string) => Promise<void>;
+    updateUserEmail: (email: string) => Promise<void>;
+    updateAuthTokens: (email: string, accessToken: string, refreshToken: string) => Promise<void>;
     hasAction: (actionCode: string) => boolean;
 }
 
@@ -107,6 +110,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
     };
 
+    const updateProfilePictureUrl = async (photoUrl: string) => {
+        try {
+            if (user) {
+                const updatedUser = { ...user, profilePictureUrl: photoUrl };
+                setUser(updatedUser);
+                // Update cached user data in AsyncStorage
+                await authService.saveUserData(updatedUser);
+            }
+        } catch (error) {
+            console.error('Error updating profile picture URL:', error);
+        }
+    };
+
+    const updateUserEmail = async (email: string) => {
+        try {
+            if (user) {
+                const updatedUser = { ...user, email: email };
+                setUser(updatedUser);
+                // Update cached user data in AsyncStorage
+                await authService.saveUserData(updatedUser);
+            }
+        } catch (error) {
+            console.error('Error updating user email:', error);
+        }
+    };
+
+    const updateAuthTokens = async (email: string, accessToken: string, refreshToken: string) => {
+        try {
+            // Store the new tokens in AsyncStorage
+            await authService.storeTokens(accessToken, refreshToken);
+            // Update the user context with the new email
+            if (user) {
+                const updatedUser = { ...user, email: email };
+                setUser(updatedUser);
+                await authService.saveUserData(updatedUser);
+            }
+        } catch (error) {
+            console.error('Error updating auth tokens:', error);
+        }
+    };
+
     const value: AuthContextType = {
         user,
         isLoading,
@@ -117,6 +161,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         resendOtp,
         logout,
         refreshUser,
+        updateProfilePictureUrl,
+        updateUserEmail,
+        updateAuthTokens,
         hasAction: (actionCode: string) => {
             return user?.actions?.includes(actionCode) ?? false;
         },

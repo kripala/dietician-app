@@ -16,8 +16,11 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Set environment for production build
+ENV NODE_ENV=production
+
 # Build static web files for production
-RUN npx expo export:web --output-dir web-build
+RUN npx expo export --platform web --output-dir web-build
 
 # Install a simple HTTP server to serve static files
 RUN npm install -g serve

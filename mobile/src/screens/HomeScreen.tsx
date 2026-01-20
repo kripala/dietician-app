@@ -12,12 +12,12 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
     const { user } = useAuth();
 
-    // Redirect admins to AdminDashboard
+    // Redirect admins to AdminDashboard (now via tabs)
     useEffect(() => {
         if (user?.role && isAdmin(user.role)) {
             navigation.reset({
                 index: 0,
-                routes: [{ name: 'AdminDashboard' as never }],
+                routes: [{ name: 'MainTabs' as never, params: { screen: 'Admin' as never } }],
             });
         }
     }, [user, navigation]);
@@ -28,7 +28,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
             <View style={styles.statsContainer}>
                 <View style={styles.statCard}>
-                    <Apple size={32} color="#4CAF50" />
+                    <Apple size={32} color="#667eea" />
                     <Text style={styles.statValue}>1,250</Text>
                     <Text style={styles.statLabel}>Calories</Text>
                 </View>
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
     },
     statCard: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 16,
+        borderRadius: 12,
         padding: 20,
         width: '48%',
         alignItems: 'center',
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     },
     menuItem: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 16,
+        borderRadius: 12,
         padding: 20,
         width: '48%',
         marginBottom: 15,
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
         margin: 20,
         padding: 30,
         backgroundColor: '#E9ECEF',
-        borderRadius: 20,
+        borderRadius: 12,
         borderStyle: 'dashed',
         borderWidth: 1,
         borderColor: '#ADB5BD',

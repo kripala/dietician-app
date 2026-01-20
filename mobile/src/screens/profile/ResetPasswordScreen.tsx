@@ -14,10 +14,11 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types';
-import { Lock, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react-native';
+import { Lock, Eye, EyeOff, CheckCircle, AlertCircle, Mail } from 'lucide-react-native';
 import AppHeader from '../../components/AppHeader';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import config from '../../config';
+import { useAuth } from '../../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ResetPassword'>;
 
@@ -30,6 +31,7 @@ interface PasswordStrength {
 }
 
 const ResetPasswordScreen: React.FC<Props> = ({ navigation }) => {
+  const { user } = useAuth();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -99,7 +101,7 @@ const ResetPasswordScreen: React.FC<Props> = ({ navigation }) => {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8080/api/auth/change-password', {
+      const response = await fetch(`${config.API_BASE_URL}/auth/change-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -170,6 +172,15 @@ const ResetPasswordScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.subtitle}>
             Enter your current password and choose a new secure password
           </Text>
+
+          {/* Email Display */}
+          <View style={styles.emailContainer}>
+            <Mail size={20} color="#6B7280" style={styles.emailIcon} />
+            <View style={styles.emailContent}>
+              <Text style={styles.emailLabel}>Account Email</Text>
+              <Text style={styles.emailValue}>{user?.email || 'Loading...'}</Text>
+            </View>
+          </View>
 
           {errors.general && (
             <View style={styles.errorBanner}>
@@ -395,6 +406,32 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
     marginBottom: 24,
+  },
+  emailContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  emailIcon: {
+    marginRight: 12,
+  },
+  emailContent: {
+    flex: 1,
+  },
+  emailLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  emailValue: {
+    fontSize: 16,
+    color: '#111827',
+    fontWeight: '500',
   },
   errorBanner: {
     flexDirection: 'row',
