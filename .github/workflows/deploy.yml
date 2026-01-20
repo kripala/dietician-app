@@ -1,39 +1,35 @@
 name: Deploy to VPS
 
 on:
-  workflow_run:
-    workflows: ["Build Docker Images"]
-    types:
-      - completed
   workflow_dispatch:
     inputs:
       backend_tag:
-        description: 'Backend image tag (e.g., main-20260121-120000)'
+        description: 'Backend image tag (leave empty for latest)'
         required: false
+        default: 'latest'
       frontend_tag:
-        description: 'Frontend image tag (e.g., main-20260121-120000)'
+        description: 'Frontend image tag (leave empty for latest)'
         required: false
+        default: 'latest'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy Backend
-        if: ${{ inputs.backend_tag != '' || github.event_name == 'workflow_run' }}
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            /opt/scripts/dietician-deploy.sh backend ${{ inputs.backend_tag || 'latest' }}
+            /opt/scripts/dietician-deploy.sh backend ${{ inputs.backend_tag }}
 
       - name: Deploy Frontend
-        if: ${{ inputs.frontend_tag != '' || github.event_name == 'workflow_run' }}
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            /opt/scripts/dietician-deploy.sh frontend ${{ inputs.frontend_tag || 'latest' }}
+            /opt/scripts/dietician-deploy.sh frontend ${{ inputs.frontend_tag }}
