@@ -154,6 +154,15 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
   const uploadPhotoWeb = async (file: File) => {
     if (!user) return;
 
+    // Check file size (5MB = 5 * 1024 * 1024 bytes)
+    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+
+    if (file.size > MAX_FILE_SIZE) {
+      showToast.error(`File size is ${fileSizeMB} MB. Must be below 5 MB.`);
+      return;
+    }
+
     try {
       setSaving(true);
       const response = await profileService.uploadPhoto(user.id, file);
@@ -163,7 +172,12 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
       showToast.success('Profile photo updated successfully');
     } catch (error: any) {
       const errorMessage = getErrorMessage(error, 'Failed to upload photo');
-      showToast.error(errorMessage);
+      // Check if error is about file size
+      if (errorMessage.includes('size') || errorMessage.includes('large')) {
+        showToast.error(`File size is ${fileSizeMB} MB. Must be below 5 MB.`);
+      } else {
+        showToast.error(errorMessage);
+      }
     } finally {
       setSaving(false);
     }
@@ -178,11 +192,7 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
       // Update profile picture URL in auth context immediately
       updateProfilePictureUrl(response.profilePhotoUrl);
       await loadProfile();
-      if (Platform.OS === 'web') {
-        showToast.success('Profile photo updated successfully');
-      } else {
-        showToast.success('Profile photo updated successfully');
-      }
+      showToast.success('Profile photo updated successfully');
     } catch (error: any) {
       const errorMessage = getErrorMessage(error, 'Failed to upload photo');
       showToast.error(errorMessage);
