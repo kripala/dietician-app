@@ -24,6 +24,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ navigation, onLogout }) => {
   const { user } = useAuth();
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+  const [imageError, setImageError] = useState(false);
   const buttonRef = useRef<View>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
@@ -31,15 +32,21 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ navigation, onLogout }) => {
   const { width: screenWidth } = Dimensions.get('window');
   const menuWidth = 200;
 
-  // Get profile picture URL with proper base URL
+  // Get profile picture URL with proper base URL and cache-busting
   const getProfilePictureUrl = () => {
     if (!user?.profilePictureUrl) return null;
     const apiBaseUrl = config.API_BASE_URL;
     const baseUrl = apiBaseUrl.replace('/api', '');
-    return `${baseUrl}${user.profilePictureUrl}`;
+    // Add timestamp to prevent stale cached images
+    return `${baseUrl}${user.profilePictureUrl}?t=${Date.now()}`;
   };
 
   const profilePictureUrl = getProfilePictureUrl();
+
+  // Reset image error when profile picture URL changes
+  useEffect(() => {
+    setImageError(false);
+  }, [user?.profilePictureUrl]);
 
   const toggleMenu = () => {
     if (!menuVisible) {
@@ -111,10 +118,11 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ navigation, onLogout }) => {
         style={styles.menuButton}
         activeOpacity={0.7}
       >
-        {profilePictureUrl ? (
+        {profilePictureUrl && !imageError ? (
           <Image
             source={{ uri: profilePictureUrl }}
             style={styles.profilePicture}
+            onError={() => setImageError(true)}
           />
         ) : (
           <View style={[styles.profilePicture, styles.profilePicturePlaceholder]}>

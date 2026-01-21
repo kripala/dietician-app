@@ -42,8 +42,15 @@ public class FileController {
             contentType = "application/pdf";
         }
 
+        // Cache-busting headers for profile photos to ensure fresh images after update
+        // For other files, use standard caching
+        long maxAge = "profile-photos".equals(category) ? 0 : 3600; // 0 seconds for photos, 1 hour for others
+        String cacheControl = "public, max-age=" + maxAge +
+                (maxAge == 0 ? ", must-revalidate, no-cache, no-store" : "");
+
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CACHE_CONTROL, cacheControl)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + file.getFilename() + "\"")
                 .body(file);
     }

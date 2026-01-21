@@ -1,0 +1,41 @@
+# Dependencies - installed via npm ci in Dockerfile
+node_modules
+package-lock.json
+
+# Test files and reports
+tests/
+playwright-report/
+test-results/
+screenshots/
+screenshots-simple/
+playwright.config.ts
+
+# Development files
+server/
+start-dev.sh
+.env*
+.env.example
+
+# Build/cache artifacts
+.expo/
+dist/
+build/
+.web-cache/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+README.md
+*.md

@@ -81,11 +81,17 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const [formData, setFormData] = useState<FormData>(initialFormData);
 
   useEffect(() => {
     loadProfile();
   }, []);
+
+  // Reset image error when profile picture URL changes
+  useEffect(() => {
+    setImageError(false);
+  }, [profile?.profilePhotoUrl]);
 
   const loadProfile = async () => {
     if (!user) return;
@@ -140,7 +146,17 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
       });
 
       if (!result.canceled && result.assets[0]) {
-        uploadPhoto(result.assets[0].uri);
+        const asset = result.assets[0];
+
+        // Check file size (5MB = 5 * 1024 * 1024 bytes)
+        const MAX_FILE_SIZE = 5 * 1024 * 1024;
+        if (asset.fileSize && asset.fileSize > MAX_FILE_SIZE) {
+          const fileSizeMB = (asset.fileSize / (1024 * 1024)).toFixed(2);
+          showToast.error(`File size is ${fileSizeMB} MB. Must be below 5 MB.`);
+          return;
+        }
+
+        uploadPhoto(asset.uri);
       }
     } else {
       if (Platform.OS === 'web') {
@@ -300,12 +316,18 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
     const apiBaseUrl = config.API_BASE_URL;
     const baseUrl = apiBaseUrl.replace('/api', '');
 
+    // Add cache-busting timestamp to profile photo URL to prevent stale cached images
+    const photoUrl = profile?.profilePhotoUrl
+      ? `${baseUrl}${profile.profilePhotoUrl}?t=${Date.now()}`
+      : null;
+
     return (
       <View style={styles.profilePhotoContainer}>
-        {profile?.profilePhotoUrl ? (
+        {photoUrl && !imageError ? (
           <Image
-            source={{ uri: `${baseUrl}${profile.profilePhotoUrl}` }}
+            source={{ uri: photoUrl }}
             style={styles.profilePhoto}
+            onError={() => setImageError(true)}
           />
         ) : (
           <View style={[styles.profilePhoto, styles.profilePhotoPlaceholder]}>
