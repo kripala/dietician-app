@@ -1,6 +1,6 @@
 # Dependencies - installed via npm ci in Dockerfile
 node_modules
-package-lock.json
+# NOTE: package-lock.json must be included for npm ci to work
 
 # Test files and reports
 tests/
