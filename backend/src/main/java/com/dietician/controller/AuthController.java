@@ -2,6 +2,7 @@ package com.dietician.controller;
 
 import com.dietician.dto.AuthDto;
 import com.dietician.service.AuthService;
+import com.dietician.util.EncryptionUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final EncryptionUtil encryptionUtil;
 
     /**
      * Register a new user with email and password
@@ -90,10 +92,27 @@ public class AuthController {
     }
 
     /**
-     * Health check endpoint
+     * Health check endpoint with encryption status
      */
     @GetMapping("/health")
     public ResponseEntity<String> health() {
-        return ResponseEntity.ok("OK");
+        // Test encryption/decryption to verify key is working
+        try {
+            String testData = "encryption-test-123";
+            String encrypted = encryptionUtil.encrypt(testData);
+            String decrypted = encryptionUtil.decrypt(encrypted);
+
+            if (testData.equals(decrypted)) {
+                return ResponseEntity.ok("OK - Encryption: Working");
+            } else {
+                log.error("Encryption health check failed: decrypted value doesn't match original");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("ERROR - Encryption: Not working correctly");
+            }
+        } catch (Exception e) {
+            log.error("Encryption health check failed", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("ERROR - Encryption: " + e.getMessage());
+        }
     }
 }

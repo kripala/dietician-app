@@ -29,6 +29,7 @@ public class UserProfileService {
     private final FileStorageService fileStorageService;
     private final AuditLogService auditLogService;
     private final com.dietician.security.JwtTokenProvider tokenProvider;
+    private final EncryptionUtil encryptionUtil;
 
     /**
      * Get user profile by user ID
@@ -79,8 +80,7 @@ public class UserProfileService {
                     String currentEmailHash = (String) result;
                     String newEmailHash = EmailHashUtil.hash(normalizedEmail);
                     if (!currentEmailHash.equals(newEmailHash)) {
-                        // Email changed, update it
-                        EncryptionUtil encryptionUtil = new EncryptionUtil("dGhpc2lzYXNlY3JldGtleWZvcmVuY3J5cHRpb24=");
+                        // Email changed, update it using injected EncryptionUtil bean
                         String encryptedEmail = encryptionUtil.encrypt(normalizedEmail);
 
                         int updatedRows = entityManager.createNativeQuery("""
