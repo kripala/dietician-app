@@ -3,6 +3,11 @@ name: Build Docker Images
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - '.gitignore'
+      - '.dockerignore'
   workflow_dispatch:
 
 jobs:
