@@ -6,9 +6,14 @@ import com.dietician.util.EncryptionUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * REST API endpoints for authentication operations.
@@ -21,6 +26,10 @@ public class AuthController {
 
     private final AuthService authService;
     private final EncryptionUtil encryptionUtil;
+    private final Environment environment;
+
+    @Value("${spring.security.oauth2.client.registration.google.client-id}")
+    private String googleClientId;
 
     /**
      * Register a new user with email and password
@@ -114,5 +123,24 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body("ERROR - Encryption: " + e.getMessage());
         }
+    }
+
+    /**
+     * Get Google OAuth configuration for frontend
+     * Returns the Google Client ID and OAuth callback URL
+     */
+    @GetMapping("/oauth2/google/config")
+    public ResponseEntity<Map<String, String>> getGoogleOAuthConfig() {
+        Map<String, String> config = new HashMap<>();
+        // Only return client ID if it's properly configured
+        if (googleClientId != null && !googleClientId.equals("your-client-id")) {
+            config.put("clientId", googleClientId);
+            config.put("callbackUrl", "/auth/oauth2/callback/google");
+            config.put("enabled", "true");
+        } else {
+            config.put("enabled", "false");
+            config.put("message", "Google OAuth is not configured");
+        }
+        return ResponseEntity.ok(config);
     }
 }
