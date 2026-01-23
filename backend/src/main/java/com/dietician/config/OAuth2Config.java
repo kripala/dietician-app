@@ -175,7 +175,7 @@ public class OAuth2Config {
             String fullName = oauthUser.getName();
             String pictureUrl = oauthUser.getPicture();
 
-            log.info("OAuth2 login success for: {}", email);
+            log.info("OAuth2 login success for: {}, pictureUrl: {}", email, pictureUrl);
 
             try {
                 // Use AuthService to handle OAuth login and generate JWT tokens

@@ -531,6 +531,14 @@ public class AuthService {
                 .executeUpdate();
 
         log.info("OAuth login - created new user with profile: {}", email);
+
+        // Send welcome email to new OAuth users
+        try {
+            emailService.sendWelcomeEmail(email, fullName);
+        } catch (Exception e) {
+            log.warn("Failed to send welcome email to OAuth user: {}", email, e);
+        }
+
         return generateAuthResponseFromOAuth(newUserId, email, fullName, pictureUrl, "PATIENT");
     }
 
