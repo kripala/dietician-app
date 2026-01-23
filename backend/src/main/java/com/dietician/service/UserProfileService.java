@@ -38,7 +38,25 @@ public class UserProfileService {
     public UserProfileDto.ProfileResponse getProfile(Long userId) {
         UserProfile profile = profileRepository.findByUserId(userId)
                 .orElse(null);
-        return mapToResponse(profile, null, null, null, false);
+
+        // Fetch email from database (decrypt it for the response)
+        String email = null;
+        if (profile != null) {
+            try {
+                Object result = entityManager.createNativeQuery(
+                        "SELECT email FROM diet.users WHERE id = :userId")
+                        .setParameter("userId", userId)
+                        .getSingleResult();
+                if (result != null) {
+                    String encryptedEmail = (String) result;
+                    email = encryptionUtil.decrypt(encryptedEmail);
+                }
+            } catch (Exception e) {
+                log.warn("Could not fetch email for user: {}", userId);
+            }
+        }
+
+        return mapToResponse(profile, email, null, null, false);
     }
 
     /**
