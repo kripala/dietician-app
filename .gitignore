@@ -1,6 +1,7 @@
 Oracle-Cloud/
 backend/src/main/resources/application-dev.properties
 *.local
+*-local.properties
 application-*.properties.local
 
 # Dependencies
