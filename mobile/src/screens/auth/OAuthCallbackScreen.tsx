@@ -3,6 +3,7 @@ import { View, Text, ActivityIndicator, StyleSheet, Platform } from 'react-nativ
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types';
 import apiClient from '../../services/apiClient';
+import authService from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OAuthCallback'>;
@@ -56,7 +57,11 @@ const OAuthCallbackScreen: React.FC<Props> = ({ route, navigation }) => {
                 console.log('[OAuthCallbackScreen] Tokens received, user:', data.user.email);
                 setDebugInfo(prev => `${prev}\nSuccess! User: ${data.user.email}`);
 
-                // Update auth state (tokens are stored by backend exchange)
+                // Store tokens in AsyncStorage for persistence
+                await authService.storeTokens(data.accessToken, data.refreshToken);
+                await authService.saveUserData(data.user);
+
+                // Update auth state
                 setUser(data.user);
                 setIsAuthenticated(true);
 
