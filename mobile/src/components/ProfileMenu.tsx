@@ -36,15 +36,22 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ navigation, onLogout }) => {
   const getProfilePictureUrl = () => {
     if (!user?.profilePictureUrl) return null;
 
+    let url = user.profilePictureUrl;
+
+    // Fix malformed Google URLs (missing colon after https)
+    if (url.startsWith('https//') || url.startsWith('http//')) {
+      url = url.replace('https//', 'https://').replace('http//', 'http://');
+    }
+
     // If it's already an absolute URL (e.g., from Google OAuth), use it as-is
-    if (user.profilePictureUrl.startsWith('http://') || user.profilePictureUrl.startsWith('https://')) {
-      return `${user.profilePictureUrl}?t=${Date.now()}`;
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return `${url}?t=${Date.now()}`;
     }
 
     // Otherwise, prepend the backend URL for relative paths
     const apiBaseUrl = config.API_BASE_URL;
     const baseUrl = apiBaseUrl.replace('/api', '');
-    return `${baseUrl}${user.profilePictureUrl}?t=${Date.now()}`;
+    return `${baseUrl}${url}?t=${Date.now()}`;
   };
 
   const profilePictureUrl = getProfilePictureUrl();
