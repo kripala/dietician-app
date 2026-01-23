@@ -188,13 +188,36 @@ public class OAuth2Config {
                 CODE_STORE.put(oneTimeCode, new OAuthData(authResponse, System.currentTimeMillis()));
 
                 // Check if this is a web client
-                String referer = request.getHeader("Referer");
                 String userAgent = request.getHeader("User-Agent");
                 boolean isWebClient = (userAgent != null && (userAgent.contains("Mozilla") || userAgent.contains("Chrome") || userAgent.contains("Safari")));
 
                 // For web clients, redirect to frontend with just the code (clean URL!)
                 if (isWebClient) {
-                    String frontendUrl = "http://localhost:8081/oauth-callback";
+                    // Determine the actual protocol (handle X-Forwarded-Proto from nginx)
+                    String scheme = request.getHeader("X-Forwarded-Proto");
+                    if (scheme == null || scheme.isEmpty()) {
+                        scheme = request.getScheme();
+                    }
+
+                    String host = request.getServerName();
+                    int serverPort = request.getServerPort();
+
+                    // For production (VPS), frontend and backend share same domain via nginx
+                    // For local development, frontend is on port 8081
+                    boolean isLocalDev = host.equals("localhost") || host.startsWith("192.168") ||
+                                       host.startsWith("10.") || host.startsWith("172.16") ||
+                                       host.equals("127.0.0.1");
+
+                    StringBuilder frontendUrl = new StringBuilder();
+                    frontendUrl.append(scheme).append("://").append(host);
+
+                    if (isLocalDev) {
+                        // Local development - frontend on port 8081
+                        frontendUrl.append(":8081");
+                    }
+                    // For production, no port needed (nginx handles routing on standard ports)
+
+                    frontendUrl.append("/oauth-callback");
                     String redirectUrl = frontendUrl + "?code=" + oneTimeCode;
 
                     log.info("Redirecting web client to: {} with code", frontendUrl);

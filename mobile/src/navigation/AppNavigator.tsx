@@ -71,7 +71,9 @@ const AppNavigator = () => {
         prefixes: ['http://localhost:8081'],
         config: {
             screens: {
-                OAuthCallback: 'oauth-callback',
+                OAuthCallback: {
+                    path: 'oauth-callback',
+                },
             },
         },
     };

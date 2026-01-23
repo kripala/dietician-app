@@ -26,9 +26,12 @@ const getApiBaseUrl = (): string => {
         const port = window.location.port;
         const protocol = window.location.protocol;
 
-        // For local development, use backend port 8080
+        // For local development (localhost or local IP), use backend port 8080
         // For production, nginx handles routing on same port
-        if (host === 'localhost' || host === '127.0.0.1') {
+        const isLocalDev = host === 'localhost' || host === '127.0.0.1' ||
+                           host.startsWith('192.168.') || host.startsWith('10.') ||
+                           host.startsWith('172.16.');
+        if (isLocalDev) {
             return `${protocol}//${host}:8080/api`;
         }
         // API runs on same host as web (nginx handles routing)

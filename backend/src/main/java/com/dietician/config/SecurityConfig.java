@@ -21,9 +21,14 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
+import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
+import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 
 import java.util.Arrays;
 import java.util.List;
@@ -43,6 +48,66 @@ public class SecurityConfig {
 
     @Autowired
     private AuthenticationSuccessHandler oauth2SuccessHandler;
+
+    @Autowired
+    private ClientRegistrationRepository clientRegistrationRepository;
+
+    /**
+     * Custom OAuth2 authorization request resolver that dynamically sets the redirect URI
+     * based on the incoming request's host. This allows OAuth to work from localhost,
+     * local IP, or any domain without hardcoding redirect URIs.
+     */
+    @Bean
+    public OAuth2AuthorizationRequestResolver customAuthorizationRequestResolver() {
+        org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver defaultResolver =
+            new org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver(
+                clientRegistrationRepository,
+                "/auth/oauth2/authorize"
+            );
+
+        return new OAuth2AuthorizationRequestResolver() {
+            @Override
+            public OAuth2AuthorizationRequest resolve(HttpServletRequest request) {
+                OAuth2AuthorizationRequest authorizationRequest = defaultResolver.resolve(request);
+                return customizeRedirectUri(request, authorizationRequest);
+            }
+
+            @Override
+            public OAuth2AuthorizationRequest resolve(HttpServletRequest request, String clientRegistrationId) {
+                OAuth2AuthorizationRequest authorizationRequest = defaultResolver.resolve(request, clientRegistrationId);
+                return customizeRedirectUri(request, authorizationRequest);
+            }
+
+            private OAuth2AuthorizationRequest customizeRedirectUri(HttpServletRequest request, OAuth2AuthorizationRequest authorizationRequest) {
+                if (authorizationRequest == null) {
+                    return null;
+                }
+
+                // Determine actual protocol and host (handle X-Forwarded-* headers from nginx)
+                String scheme = request.getHeader("X-Forwarded-Proto");
+                if (scheme == null || scheme.isEmpty()) {
+                    scheme = request.getScheme();
+                }
+
+                String host = request.getHeader("X-Forwarded-Host");
+                if (host == null || host.isEmpty()) {
+                    host = request.getServerName();
+                }
+
+                String contextPath = request.getContextPath(); // /api
+
+                StringBuilder redirectUri = new StringBuilder();
+                redirectUri.append(scheme).append("://").append(host);
+                redirectUri.append(contextPath);
+                redirectUri.append("/auth/oauth2/callback/google");
+
+                // Create a new authorization request with the custom redirect URI
+                return OAuth2AuthorizationRequest.from(authorizationRequest)
+                        .redirectUri(redirectUri.toString())
+                        .build();
+            }
+        };
+    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -70,7 +135,8 @@ public class SecurityConfig {
                 )
                 .oauth2Login(oauth2 -> oauth2
                         .authorizationEndpoint(authorization -> authorization
-                                .baseUri("/auth/oauth2/authorize"))
+                                .baseUri("/auth/oauth2/authorize")
+                                .authorizationRequestResolver(customAuthorizationRequestResolver()))
                         .redirectionEndpoint(redirection -> redirection
                                 .baseUri("/auth/oauth2/callback/*"))
                         .successHandler(oauth2SuccessHandler)
