@@ -1,1 +1,14 @@
 Oracle-Cloud/
+backend/src/main/resources/application-dev.properties
+*.local
+application-*.properties.local
+
+# Dependencies
+node_modules/
+
+# Test results
+mobile/test-results/
+mobile/playwright-report/
+
+# Playwright tests
+mobile/tests/*.spec.ts

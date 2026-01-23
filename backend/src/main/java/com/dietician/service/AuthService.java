@@ -6,6 +6,7 @@ import com.dietician.model.User;
 import com.dietician.repository.RoleRepository;
 import com.dietician.repository.UserRepository;
 import com.dietician.util.EmailHashUtil;
+import com.dietician.util.EncryptionUtil;
 import com.dietician.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +39,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final AuditLogService auditLogService;
     private final EntityManager entityManager;
+    private final EncryptionUtil encryptionUtil;
     private final SecureRandom secureRandom = new SecureRandom();
 
     /**
@@ -379,9 +381,9 @@ public class AuthService {
         String email = authentication.getName();
         String emailHash = EmailHashUtil.hash(email);
 
-        // Use native query to get user data without encrypted email
+        // Use native query to get user data including google_id
         String nativeQuery = """
-            SELECT u.id, u.password
+            SELECT u.id, u.password, u.google_id
             FROM diet.users u
             WHERE u.email_search = :emailHash
             """;
@@ -398,6 +400,15 @@ public class AuthService {
 
         Long userId = ((Number) result[0]).longValue();
         String password = (String) result[1];
+        String googleId = (String) result[2];
+
+        // Check if user is OAuth-only (has google_id but no password)
+        if (googleId != null && password == null) {
+            throw new RuntimeException(
+                "You signed in with Google. Password management is not available for Google accounts. " +
+                "Please use Google Sign-In to access your account."
+            );
+        }
 
         // Verify current password
         if (!passwordEncoder.matches(request.getCurrentPassword(), password)) {
@@ -438,7 +449,7 @@ public class AuthService {
         Object[] googleUser = null;
         try {
             googleUser = (Object[]) entityManager.createNativeQuery(
-                    "SELECT u.id, u.full_name, u.profile_photo_url, r.role_code " +
+                    "SELECT u.id, u.full_name, u.profile_picture_url, r.role_code " +
                     "FROM diet.users u JOIN diet.roles r ON u.role_id = r.id " +
                     "WHERE u.google_id = :googleId")
                     .setParameter("googleId", googleId)
@@ -475,7 +486,7 @@ public class AuthService {
 
             // Get user details
             Object[] user = (Object[]) entityManager.createNativeQuery(
-                    "SELECT u.full_name, u.profile_photo_url, r.role_code " +
+                    "SELECT u.full_name, u.profile_picture_url, r.role_code " +
                     "FROM diet.users u JOIN diet.roles r ON u.role_id = r.id WHERE u.id = :userId")
                     .setParameter("userId", existingUserId)
                     .getSingleResult();
@@ -490,14 +501,12 @@ public class AuthService {
                 "SELECT id FROM diet.roles WHERE role_code = 'PATIENT'")
                 .getSingleResult()).longValue();
 
-        // Encrypt the email
-        com.dietician.util.EncryptionUtil encryptionUtil =
-                new com.dietician.util.EncryptionUtil("dGhpc2lzYXNlY3JldGtleWZvcmVuY3J5cHRpb24=");
+        // Encrypt the email using injected EncryptionUtil bean
         String encryptedEmail = encryptionUtil.encrypt(email);
 
         // Insert new user
-        entityManager.createNativeQuery("""
-                INSERT INTO diet.users (email, email_search, google_id, full_name, profile_photo_url,
+        Long newUserId = ((Number) entityManager.createNativeQuery("""
+                INSERT INTO diet.users (email, email_search, google_id, full_name, profile_picture_url,
                     email_verified, role_id, is_active, created_by, created_date)
                 VALUES (:email, :emailHash, :googleId, :fullName, :profilePictureUrl,
                     true, :roleId, true, 'OAUTH', now())
@@ -509,10 +518,20 @@ public class AuthService {
                 .setParameter("fullName", fullName)
                 .setParameter("profilePictureUrl", pictureUrl)
                 .setParameter("roleId", patientRoleId)
-                .getSingleResult();
+                .getSingleResult()).longValue();
 
-        log.info("OAuth login - created new user: {}", email);
-        return generateAuthResponseFromOAuth(null, email, fullName, pictureUrl, "PATIENT");
+        // Create user profile for new OAuth user
+        entityManager.createNativeQuery("""
+                INSERT INTO diet.user_profiles (user_id, first_name, profile_photo_url, created_by, created_date)
+                VALUES (:userId, :firstName, :profilePhotoUrl, 'OAUTH', now())
+                """)
+                .setParameter("userId", newUserId)
+                .setParameter("firstName", fullName != null ? fullName.split(" ")[0] : "")
+                .setParameter("profilePhotoUrl", pictureUrl != null ? pictureUrl : "")
+                .executeUpdate();
+
+        log.info("OAuth login - created new user with profile: {}", email);
+        return generateAuthResponseFromOAuth(newUserId, email, fullName, pictureUrl, "PATIENT");
     }
 
     private AuthDto.AuthResponse generateAuthResponseFromOAuth(Long userId, String email, String fullName,

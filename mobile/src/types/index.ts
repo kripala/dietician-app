@@ -174,6 +174,7 @@ export type RootStackParamList = {
   CreateUser: { role: string };  // Dynamic role code
   EditUser: { userId: number };
   RoleManagement: undefined;
+  OAuthCallback: undefined;
 };
 
 // API Error type

@@ -23,7 +23,14 @@ const getApiBaseUrl = (): string => {
     if (Platform.OS === 'web') {
         // Use window.location to determine the actual host
         const host = window.location.hostname;
+        const port = window.location.port;
         const protocol = window.location.protocol;
+
+        // For local development, use backend port 8080
+        // For production, nginx handles routing on same port
+        if (host === 'localhost' || host === '127.0.0.1') {
+            return `${protocol}//${host}:8080/api`;
+        }
         // API runs on same host as web (nginx handles routing)
         return `${protocol}//${host}/api`;
     }
@@ -55,7 +62,7 @@ const config = {
     API_BASE_URL: getApiBaseUrl(),
 
     // OAuth Configuration
-    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
+    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '201804109447-lda6r5fc0fac15nis0oukghd1u8vhpfr.apps.googleusercontent.com',
 
     // App Configuration
     APP_NAME: 'Dietician App',

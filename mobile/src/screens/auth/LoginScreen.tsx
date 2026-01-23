@@ -9,7 +9,8 @@ import {
     KeyboardAvoidingView,
     Platform,
     Alert,
-    ActivityIndicator
+    ActivityIndicator,
+    Image
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types';
@@ -20,10 +21,11 @@ import { getErrorMessage } from '../../utils/errorHandler';
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
-    const { login } = useAuth();
+    const { login, loginWithGoogle } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isGoogleSigning, setIsGoogleSigning] = useState(false);
 
     const handleLogin = async () => {
         if (!email || !password) {
@@ -65,6 +67,20 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
             }
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    const handleGoogleSignIn = async () => {
+        setIsGoogleSigning(true);
+        try {
+            await loginWithGoogle();
+            // Navigation is handled automatically by AuthContext
+        } catch (error: any) {
+            console.error('Google Sign-In error:', error);
+            const errorMessage = getErrorMessage(error, 'Google Sign-In failed. Please try again.');
+            window.alert(`Google Sign-In Failed: ${errorMessage}`);
+        } finally {
+            setIsGoogleSigning(false);
         }
     };
 
@@ -128,6 +144,33 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                                 <>
                                     <Text style={styles.buttonText}>Sign In</Text>
                                     <ArrowRight size={20} color="#FFFFFF" />
+                                </>
+                            )}
+                        </TouchableOpacity>
+
+                        {/* Divider */}
+                        <View style={styles.divider}>
+                            <View style={styles.dividerLine} />
+                            <Text style={styles.dividerText}>OR</Text>
+                            <View style={styles.dividerLine} />
+                        </View>
+
+                        {/* Google Sign-In Button */}
+                        <TouchableOpacity
+                            style={[styles.googleButton, isGoogleSigning && styles.buttonDisabled]}
+                            onPress={handleGoogleSignIn}
+                            disabled={isGoogleSigning}
+                        >
+                            {isGoogleSigning ? (
+                                <ActivityIndicator color="#6c757d" />
+                            ) : (
+                                <>
+                                    <Image
+                                        source={{ uri: 'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg' }}
+                                        style={styles.googleLogo}
+                                        resizeMode="contain"
+                                    />
+                                    <Text style={styles.googleButtonText}>Sign in with Google</Text>
                                 </>
                             )}
                         </TouchableOpacity>
@@ -240,6 +283,42 @@ const styles = StyleSheet.create({
         color: '#667eea',
         fontSize: 15,
         fontWeight: 'bold',
+    },
+    divider: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: 20,
+    },
+    dividerLine: {
+        flex: 1,
+        height: 1,
+        backgroundColor: '#E9ECEF',
+    },
+    dividerText: {
+        marginHorizontal: 15,
+        color: '#6c757d',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    googleButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 14,
+        borderRadius: 12,
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1.5,
+        borderColor: '#E9ECEF',
+    },
+    googleLogo: {
+        width: 24,
+        height: 24,
+        marginRight: 12,
+    },
+    googleButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#212529',
     },
 });
 

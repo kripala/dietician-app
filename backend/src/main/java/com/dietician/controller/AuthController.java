@@ -143,4 +143,33 @@ public class AuthController {
         }
         return ResponseEntity.ok(config);
     }
+
+    /**
+     * Exchange OAuth code for tokens
+     * Called by frontend after OAuth redirect with a one-time code
+     */
+    @PostMapping("/oauth2/exchange")
+    public ResponseEntity<?> exchangeCodeForTokens(@RequestBody Map<String, String> request) {
+        String code = request.get("code");
+        if (code == null || code.isEmpty()) {
+            return ResponseEntity.badRequest().body(new AuthDto.MessageResponse("Code is required"));
+        }
+
+        log.info("OAuth code exchange request received");
+
+        // Exchange code for tokens using the OAuth2Config method
+        com.dietician.config.OAuth2Config.OAuth2AuthenticationSuccessHandler.OAuthData oauthData =
+            com.dietician.config.OAuth2Config.OAuth2AuthenticationSuccessHandler.getAndRemoveCode(code);
+
+        if (oauthData == null) {
+            log.warn("Invalid or expired OAuth code: {}", code);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new AuthDto.MessageResponse("Invalid or expired code"));
+        }
+
+        log.info("OAuth code exchange successful for user: {}",
+            oauthData.getAuthResponse().getUser().getEmail());
+
+        return ResponseEntity.ok(oauthData.getAuthResponse());
+    }
 }

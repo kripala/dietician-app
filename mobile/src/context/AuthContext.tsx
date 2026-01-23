@@ -1,17 +1,24 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import authService from '../services/authService';
+import apiClient from '../services/apiClient';
+import config from '../config';
 import { User, LoginRequest, RegisterRequest, VerifyOtpRequest, Role } from '../types';
 
 interface AuthContextType {
     user: User | null;
     isLoading: boolean;
     isAuthenticated: boolean;
+    setUser: (user: User | null) => void;
+    setIsAuthenticated: (isAuthenticated: boolean) => void;
     login: (data: LoginRequest) => Promise<void>;
+    loginWithGoogle: () => Promise<void>;
     register: (data: RegisterRequest) => Promise<{ message: string }>;
     verifyOtp: (data: VerifyOtpRequest) => Promise<void>;
     resendOtp: (email: string) => Promise<{ message: string }>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
+    checkAuthStatus: () => Promise<void>;
+    handleOAuthCallback: (accessToken: string, refreshToken: string) => Promise<void>;
     updateProfilePictureUrl: (photoUrl: string) => Promise<void>;
     updateUserEmail: (email: string) => Promise<void>;
     updateAuthTokens: (email: string, accessToken: string, refreshToken: string) => Promise<void>;
@@ -36,15 +43,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const checkAuthStatus = async () => {
         try {
+            console.log('[AuthProvider] checkAuthStatus starting...');
             const authenticated = await authService.isAuthenticated();
+            console.log('[AuthProvider] Authentication check result:', authenticated);
+            
             setIsAuthenticated(authenticated);
 
             if (authenticated) {
                 const currentUser = await authService.getCurrentUser();
+                console.log('[AuthProvider] Current user:', currentUser?.email);
                 setUser(currentUser);
             }
         } catch (error) {
-            console.error('Error checking auth status:', error);
+            console.error('[AuthProvider] Error checking auth status:', error);
         } finally {
             setIsLoading(false);
         }
@@ -53,6 +64,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const login = async (data: LoginRequest) => {
         try {
             const response = await authService.login(data);
+            setUser(response.user);
+            setIsAuthenticated(true);
+        } catch (error) {
+            throw error;
+        }
+    };
+
+    const loginWithGoogle = async () => {
+        try {
+            const response = await authService.loginWithGoogle();
+
+            // Store tokens and user data
+            await authService.storeTokens(response.accessToken, response.refreshToken);
+            await authService.saveUserData(response.user);
+
             setUser(response.user);
             setIsAuthenticated(true);
         } catch (error) {
@@ -151,16 +177,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
     };
 
+    const handleOAuthCallback = async (accessToken: string, refreshToken: string) => {
+        try {
+            // Store tokens in AsyncStorage
+            await authService.storeTokens(accessToken, refreshToken);
+
+            // Temporarily set the token for the API call
+            const tempClient = apiClient;
+            tempClient.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+
+            // Fetch user data using the access token
+            const response = await tempClient.get<User>('/auth/me');
+
+            // Store user data in AsyncStorage
+            await authService.saveUserData(response);
+
+            // Update auth context with user data
+            setUser(response);
+            setIsAuthenticated(true);
+
+            console.log('OAuth login successful, user:', response.email);
+        } catch (error) {
+            console.error('Error handling OAuth callback:', error);
+            throw error;
+        }
+    };
+
     const value: AuthContextType = {
         user,
         isLoading,
         isAuthenticated,
+        setUser,
+        setIsAuthenticated,
         login,
+        loginWithGoogle,
         register,
         verifyOtp,
         resendOtp,
         logout,
         refreshUser,
+        checkAuthStatus,
+        handleOAuthCallback,
         updateProfilePictureUrl,
         updateUserEmail,
         updateAuthTokens,

@@ -10,6 +10,7 @@ import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import EmailVerificationScreen from '../screens/auth/EmailVerificationScreen';
+import OAuthCallbackScreen from '../screens/auth/OAuthCallbackScreen';
 
 // Main Screens
 import HomeScreen from '../screens/HomeScreen';
@@ -29,28 +30,31 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const NavigationStateHandler: React.FC<{ user: any; isAuthenticated: boolean; isLoading: boolean }> =
     ({ user, isAuthenticated, isLoading }) => {
         const navigation = useNavigation();
-        const wasAuthenticated = useRef(false);
 
         useEffect(() => {
-            if (isLoading) return;
+            console.log('[NavigationStateHandler] State changed:', { isLoading, isAuthenticated, user: user?.email });
 
-            // Navigate when auth state changes
-            if (isAuthenticated && !wasAuthenticated.current) {
-                // User just logged in - navigate to main tabs
+            if (isLoading) {
+                console.log('[NavigationStateHandler] Still loading, waiting...');
+                return;
+            }
+
+            // Always navigate based on current auth state
+            if (isAuthenticated) {
+                console.log('[NavigationStateHandler] User IS authenticated, navigating to MainTabs');
                 (navigation as any).reset({
                     index: 0,
                     routes: [{ name: 'MainTabs' }],
                 });
-            } else if (!isAuthenticated && wasAuthenticated.current) {
-                // User just logged out
+            } else {
+                console.log('[NavigationStateHandler] User NOT authenticated, showing Welcome');
+                // Don't reset if already on welcome to prevent loops
                 (navigation as any).reset({
                     index: 0,
                     routes: [{ name: 'Welcome' }],
                 });
             }
-
-            wasAuthenticated.current = isAuthenticated;
-        }, [isAuthenticated, user, isLoading, navigation]);
+        }, [isAuthenticated, isLoading, user, navigation]);
 
         return null;
     };
@@ -62,8 +66,18 @@ const AppNavigator = () => {
         return null;
     }
 
+    // Linking configuration for web deep linking
+    const linking = {
+        prefixes: ['http://localhost:8081'],
+        config: {
+            screens: {
+                OAuthCallback: 'oauth-callback',
+            },
+        },
+    };
+
     return (
-        <NavigationContainer>
+        <NavigationContainer linking={linking}>
             <Stack.Navigator
                 screenOptions={{
                     headerShown: false,
@@ -76,6 +90,7 @@ const AppNavigator = () => {
                 <Stack.Screen name="Login" component={LoginScreen} />
                 <Stack.Screen name="Register" component={RegisterScreen} />
                 <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+                <Stack.Screen name="OAuthCallback" component={OAuthCallbackScreen} />
 
                 {/* Main App with Bottom Tabs */}
                 <Stack.Screen

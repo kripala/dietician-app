@@ -35,9 +35,15 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ navigation, onLogout }) => {
   // Get profile picture URL with proper base URL and cache-busting
   const getProfilePictureUrl = () => {
     if (!user?.profilePictureUrl) return null;
+
+    // If it's already an absolute URL (e.g., from Google OAuth), use it as-is
+    if (user.profilePictureUrl.startsWith('http://') || user.profilePictureUrl.startsWith('https://')) {
+      return `${user.profilePictureUrl}?t=${Date.now()}`;
+    }
+
+    // Otherwise, prepend the backend URL for relative paths
     const apiBaseUrl = config.API_BASE_URL;
     const baseUrl = apiBaseUrl.replace('/api', '');
-    // Add timestamp to prevent stale cached images
     return `${baseUrl}${user.profilePictureUrl}?t=${Date.now()}`;
   };
 
@@ -102,13 +108,19 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ navigation, onLogout }) => {
     onLogout();
   };
 
+  // Check if user is an OAuth user (has Google profile picture)
+  const isOAuthUser = user?.profilePictureUrl?.includes('googleusercontent.com');
+
   const menuItems = [
-    {
-      icon: Lock,
-      label: 'Reset Password',
-      onPress: () => handleMenuPress('ResetPassword'),
-      color: '#059669',
-    },
+    // Only show Reset Password for non-OAuth users
+    ...(isOAuthUser ? [] : [
+      {
+        icon: Lock,
+        label: 'Reset Password',
+        onPress: () => handleMenuPress('ResetPassword'),
+        color: '#059669',
+      },
+    ]),
   ];
 
   return (
