@@ -22,19 +22,23 @@ jobs:
           chmod 600 ssh_key
 
       - name: Deploy Backend
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@v1.2.4
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key_path: ssh_key
+          timeout: 10m
+          script_stop: false
           script: |
             /opt/scripts/dietician-deploy.sh backend ${{ inputs.backend_tag }}
 
       - name: Deploy Frontend
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@v1.2.4
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key_path: ssh_key
+          timeout: 10m
+          script_stop: false
           script: |
             /opt/scripts/dietician-deploy.sh frontend ${{ inputs.frontend_tag }}
