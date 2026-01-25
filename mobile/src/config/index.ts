@@ -68,7 +68,7 @@ const config = {
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '201804109447-lda6r5fc0fac15nis0oukghd1u8vhpfr.apps.googleusercontent.com',
 
     // App Configuration
-    APP_NAME: 'Dietician App',
+    APP_NAME: 'Dietitian App',
     APP_VERSION: '1.0.0',
 
     // Token storage keys

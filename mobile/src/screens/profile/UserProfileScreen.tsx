@@ -12,6 +12,7 @@ import {
   ScrollView,
   Image,
   Keyboard,
+  Modal,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types';
@@ -83,6 +84,15 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
   const [editing, setEditing] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [formData, setFormData] = useState<FormData>(initialFormData);
+
+  // Email change verification state
+  const [emailChangeModalVisible, setEmailChangeModalVisible] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState('');
+  const [otpModalVisible, setOtpModalVisible] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpResending, setOtpResending] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -220,56 +230,50 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
   const handleSave = async () => {
     // Validation
     if (!formData.firstName.trim()) {
-      if (Platform.OS === 'web') {
-        showToast.error('First name is required');
-      } else {
-        showToast.error('First name is required');
-      }
+      showToast.error('First name is required');
       return;
     }
 
     if (!formData.lastName.trim()) {
-      if (Platform.OS === 'web') {
-        showToast.error('Last name is required');
-      } else {
-        showToast.error('Last name is required');
-      }
+      showToast.error('Last name is required');
       return;
     }
 
     if (!formData.dateOfBirth) {
-      if (Platform.OS === 'web') {
-        showToast.error('Date of birth is required');
-      } else {
-        showToast.error('Date of birth is required');
-      }
+      showToast.error('Date of birth is required');
       return;
     }
 
     if (!formData.gender) {
-      if (Platform.OS === 'web') {
-        showToast.error('Gender is required');
-      } else {
-        showToast.error('Gender is required');
-      }
+      showToast.error('Gender is required');
       return;
     }
 
     if (!formData.mobileNumber.trim()) {
-      if (Platform.OS === 'web') {
-        showToast.error('Mobile number is required');
-      } else {
-        showToast.error('Mobile number is required');
-      }
+      showToast.error('Mobile number is required');
       return;
     }
 
+    // Check if email changed and not empty
+    const originalEmail = user?.email || '';
+    const newEmail = formData.email || '';
+
+    if (newEmail && newEmail !== originalEmail && newEmail.trim() !== '') {
+      // Email changed - show verification dialog instead of saving directly
+      setPendingEmail(newEmail);
+      setEmailChangeModalVisible(true);
+      return;
+    }
+
+    // No email change - proceed with normal save
+    await saveProfile();
+  };
+
+  const saveProfile = async () => {
     try {
       setSaving(true);
       Keyboard.dismiss();
 
-      // Store original email to check if changed
-      const originalEmail = user?.email;
       const newEmail = formData.email || undefined;
 
       const response: any = await profileService.updateProfile(user!.id, {
@@ -288,11 +292,9 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
       });
 
       // Update auth tokens if email was changed (backend returns new tokens)
-      if (response?.emailChanged && response?.accessToken && response?.refreshToken && newEmail) {
+      const originalEmail = user?.email || '';
+      if (newEmail && newEmail !== originalEmail && response?.emailChanged && response?.accessToken && response?.refreshToken) {
         await updateAuthTokens(newEmail, response.accessToken, response.refreshToken);
-      } else if (newEmail && originalEmail && newEmail !== originalEmail) {
-        // Fallback: just update email if no tokens returned
-        await updateUserEmail(newEmail);
       }
 
       await loadProfile();
@@ -309,6 +311,205 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
     } finally {
       setSaving(false);
     }
+  };
+
+  // ============================================
+  // Email Change Verification Handlers
+  // ============================================
+
+  const handleSendEmailChangeOtp = async () => {
+    if (!user) return;
+
+    try {
+      setOtpSending(true);
+      const response = await profileService.sendEmailChangeVerification(user.id, pendingEmail);
+
+      // Check if user is OAuth user
+      if (response.message?.includes('OAuth') || response.message?.includes('Google')) {
+        setEmailChangeModalVisible(false);
+        showToast.error(response.message || 'OAuth users must use Google Sign-In to change email');
+        return;
+      }
+
+      // Show OTP input modal
+      setEmailChangeModalVisible(false);
+      setOtpModalVisible(true);
+      setOtpCode('');
+      showToast.success(response.message || 'Verification code sent!');
+    } catch (error: any) {
+      const errorMessage = getErrorMessage(error, 'Failed to send verification code');
+      showToast.error(errorMessage);
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const handleVerifyEmailChange = async () => {
+    if (!user || !otpCode || otpCode.length !== 6) {
+      showToast.error('Please enter a valid 6-digit code');
+      return;
+    }
+
+    try {
+      setOtpVerifying(true);
+      const response = await profileService.confirmEmailChange(user.id, pendingEmail, otpCode);
+
+      // Update auth tokens with new email
+      await updateAuthTokens(pendingEmail, response.accessToken, response.refreshToken);
+
+      // Update form data with new email
+      setFormData({ ...formData, email: pendingEmail });
+
+      // Save the rest of the profile
+      setOtpModalVisible(false);
+      await saveProfile();
+
+      showToast.success('Email updated successfully!');
+    } catch (error: any) {
+      const errorMessage = getErrorMessage(error, 'Failed to verify email');
+      showToast.error(errorMessage);
+    } finally {
+      setOtpVerifying(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!user) return;
+
+    try {
+      setOtpResending(true);
+      const response = await profileService.resendEmailChangeOtp(user.id, pendingEmail);
+      showToast.success(response.message || 'New code sent!');
+    } catch (error: any) {
+      const errorMessage = getErrorMessage(error, 'Failed to resend code');
+      showToast.error(errorMessage);
+    } finally {
+      setOtpResending(false);
+    }
+  };
+
+  const renderEmailChangeModal = () => {
+    return (
+      <Modal
+        visible={emailChangeModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEmailChangeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Mail size={24} color="#6B7280" />
+              <Text style={styles.modalTitle}>Email Change Verification</Text>
+            </View>
+
+            <View style={styles.modalContent}>
+              <Text style={styles.modalMessage}>
+                A verification code will be sent to:
+              </Text>
+              <Text style={styles.modalEmail}>{pendingEmail}</Text>
+              <Text style={styles.modalWarning}>
+                Your login email will change to this address after verification.
+              </Text>
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSecondary]}
+                onPress={() => setEmailChangeModalVisible(false)}
+                disabled={otpSending}
+              >
+                <Text style={styles.modalButtonSecondaryText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonPrimary]}
+                onPress={handleSendEmailChangeOtp}
+                disabled={otpSending}
+              >
+                {otpSending ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalButtonPrimaryText}>Send Code</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderOtpModal = () => {
+    return (
+      <Modal
+        visible={otpModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOtpModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Mail size={24} color="#6B7280" />
+              <Text style={styles.modalTitle}>Enter Verification Code</Text>
+            </View>
+
+            <View style={styles.modalContent}>
+              <Text style={styles.modalMessage}>
+                Enter the 6-digit code sent to:
+              </Text>
+              <Text style={styles.modalEmail}>{pendingEmail}</Text>
+
+              <TextInput
+                style={styles.otpInput}
+                value={otpCode}
+                onChangeText={setOtpCode}
+                placeholder="000000"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="number-pad"
+                maxLength={6}
+                autoFocus
+              />
+
+              <TouchableOpacity
+                onPress={handleResendOtp}
+                disabled={otpResending}
+                style={styles.resendLink}
+              >
+                {otpResending ? (
+                  <Text style={styles.resendLinkTextDisabled}>Sending...</Text>
+                ) : (
+                  <Text style={styles.resendLinkText}>Resend Code</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSecondary]}
+                onPress={() => setOtpModalVisible(false)}
+                disabled={otpVerifying}
+              >
+                <Text style={styles.modalButtonSecondaryText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonPrimary]}
+                onPress={handleVerifyEmailChange}
+                disabled={otpVerifying || otpCode.length !== 6}
+              >
+                {otpVerifying ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalButtonPrimaryText}>Verify</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
   };
 
   const renderProfilePhoto = () => {
@@ -630,6 +831,10 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
       >
         {editing ? renderEditMode() : renderViewMode()}
       </KeyboardAvoidingView>
+
+      {/* Email Change Verification Modals */}
+      {renderEmailChangeModal()}
+      {renderOtpModal()}
     </SafeAreaView>
   );
 };
@@ -816,5 +1021,120 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+
+  // ============================================
+  // Modal Styles
+  // ============================================
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  modalContent: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalEmail: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4F46E5',
+    marginBottom: 12,
+  },
+  modalWarning: {
+    fontSize: 13,
+    color: '#F59E0B',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  otpInput: {
+    width: '100%',
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    fontSize: 20,
+    fontWeight: '600',
+    letterSpacing: 4,
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  resendLink: {
+    marginTop: 8,
+  },
+  resendLinkText: {
+    fontSize: 14,
+    color: '#4F46E5',
+    fontWeight: '500',
+  },
+  resendLinkTextDisabled: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    fontWeight: '500',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    padding: 20,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  modalButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  modalButtonSecondary: {
+    backgroundColor: '#F3F4F6',
+  },
+  modalButtonPrimary: {
+    backgroundColor: '#4F46E5',
+  },
+  modalButtonSecondaryText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  modalButtonPrimaryText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

@@ -19,7 +19,7 @@ const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
                 <View style={styles.content}>
                     <View style={styles.logoContainer}>
                         <Apple size={80} color="#FFFFFF" strokeWidth={1.5} />
-                        <Text style={styles.title}>Dietician</Text>
+                        <Text style={styles.title}>Dietitian</Text>
                         <Text style={styles.subtitle}>Your Health, Simplified</Text>
                     </View>
 

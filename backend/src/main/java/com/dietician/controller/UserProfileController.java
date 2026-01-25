@@ -1,5 +1,6 @@
 package com.dietician.controller;
 
+import com.dietician.dto.AuthDto;
 import com.dietician.dto.UserProfileDto;
 import com.dietician.service.UserProfileService;
 import jakarta.validation.Valid;
@@ -10,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+
+import java.security.Principal;
 
 /**
  * REST API endpoints for user profile operations
@@ -54,6 +57,48 @@ public class UserProfileController {
             @RequestParam("file") MultipartFile file) {
         log.info("Uploading photo for user: {}, file size: {} bytes", userId, file.getSize());
         UserProfileDto.PhotoUploadResponse response = profileService.uploadProfilePhoto(userId, file);
+        return ResponseEntity.ok(response);
+    }
+
+    // ============================================
+    // Email Change Verification Endpoints
+    // ============================================
+
+    /**
+     * Send OTP to new email for email change verification
+     * OAuth users will receive an error response directing them to use Google Sign-In
+     */
+    @PostMapping("/email/send-verification")
+    public ResponseEntity<AuthDto.MessageResponse> sendEmailChangeVerification(
+            @RequestParam Long userId,
+            @Valid @RequestBody AuthDto.EmailChangeVerificationRequest request) {
+        log.info("Sending email change verification for user: {} to email: {}", userId, request.getNewEmail());
+        AuthDto.MessageResponse response = profileService.sendEmailChangeVerification(userId, request.getNewEmail());
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Confirm email change with OTP
+     * Returns new JWT tokens with the updated email
+     */
+    @PostMapping("/email/confirm-change")
+    public ResponseEntity<AuthDto.AuthResponse> confirmEmailChange(
+            @RequestParam Long userId,
+            @Valid @RequestBody AuthDto.EmailChangeConfirmRequest request) {
+        log.info("Confirming email change for user: {} to email: {}", userId, request.getNewEmail());
+        AuthDto.AuthResponse response = profileService.confirmEmailChange(userId, request.getNewEmail(), request.getOtpCode());
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Resend OTP for email change verification
+     */
+    @PostMapping("/email/resend-otp")
+    public ResponseEntity<AuthDto.MessageResponse> resendEmailChangeOtp(
+            @RequestParam Long userId,
+            @Valid @RequestBody AuthDto.EmailChangeVerificationRequest request) {
+        log.info("Resending email change OTP for user: {} to email: {}", userId, request.getNewEmail());
+        AuthDto.MessageResponse response = profileService.resendEmailChangeOtp(userId, request.getNewEmail());
         return ResponseEntity.ok(response);
     }
 

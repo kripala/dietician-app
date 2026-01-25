@@ -1,6 +1,6 @@
-# Dietician App Backend
+# Dietitian App Backend
 
-Spring Boot backend API for the Dietician mobile application.
+Spring Boot backend API for the Dietitian mobile application.
 
 ## Features
 

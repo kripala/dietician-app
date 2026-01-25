@@ -101,4 +101,22 @@ public class AuthDto {
         @Size(min = 8, message = "New password must be at least 8 characters")
         private String newPassword;
     }
+
+    @Data
+    public static class EmailChangeVerificationRequest {
+        @NotBlank(message = "New email is required")
+        @Email(message = "New email must be valid")
+        private String newEmail;
+    }
+
+    @Data
+    public static class EmailChangeConfirmRequest {
+        @NotBlank(message = "New email is required")
+        @Email(message = "New email must be valid")
+        private String newEmail;
+
+        @NotBlank(message = "OTP code is required")
+        @Size(min = 6, max = 6, message = "OTP must be 6 digits")
+        private String otpCode;
+    }
 }

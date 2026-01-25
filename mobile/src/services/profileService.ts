@@ -1,5 +1,5 @@
 import apiClient from './apiClient';
-import { UserProfile, UpdateProfileRequest, PhotoUploadResponse } from '../types';
+import { UserProfile, UpdateProfileRequest, PhotoUploadResponse, AuthResponse, MessageResponse } from '../types';
 
 /**
  * Service for managing user profile operations
@@ -43,6 +43,32 @@ class ProfileService {
     formData.append('userId', userId.toString());
 
     return apiClient.post<PhotoUploadResponse>(`/user-profiles/me/photo?userId=${userId}`, formData as unknown as string);
+  }
+
+  // ============================================
+  // Email Change Verification Methods
+  // ============================================
+
+  /**
+   * Send OTP to new email for email change verification
+   */
+  async sendEmailChangeVerification(userId: number, newEmail: string): Promise<MessageResponse> {
+    return apiClient.post<MessageResponse>(`/user-profiles/email/send-verification?userId=${userId}`, { newEmail });
+  }
+
+  /**
+   * Confirm email change with OTP
+   * Returns new auth tokens with updated email
+   */
+  async confirmEmailChange(userId: number, newEmail: string, otpCode: string): Promise<AuthResponse> {
+    return apiClient.post<AuthResponse>(`/user-profiles/email/confirm-change?userId=${userId}`, { newEmail, otpCode });
+  }
+
+  /**
+   * Resend OTP for email change verification
+   */
+  async resendEmailChangeOtp(userId: number, newEmail: string): Promise<MessageResponse> {
+    return apiClient.post<MessageResponse>(`/user-profiles/email/resend-otp?userId=${userId}`, { newEmail });
   }
 }
 

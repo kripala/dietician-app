@@ -1,4 +1,4 @@
-# Dietician App - Project README
+# Dietitian App - Project README
 
 A full-stack mobile application for dieticians to provide consultations, prescribe supplements, create food charts, and manage patient reminders.
 
@@ -85,7 +85,7 @@ Logs for background processes are stored in the `logs/` directory.
 
 Default seeded accounts (passwords use the case-sensitive values shown). They are inserted automatically by the backend at startup so that encryption and hashing go through the normal code path:
 - Admin: `admin.vaibhav.kripala@gmail.com` / `Admin@123`
-- Dietician: `dietician.vaibhav.kripala@gmail.com` / `Dietician@123`
+- Dietitian: `dietician.vaibhav.kripala@gmail.com` / `Dietitian@123`
 
 If you drop/recreate the schema, restart the backend once to let the seeder run. Additional users created through the UI are assigned the PATIENT role by default.
 

@@ -68,4 +68,30 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * Find users by role code.
      */
     List<User> findByRoleRoleCode(String roleCode);
+
+    // ============================================
+    // Email Change Verification
+    // ============================================
+
+    /**
+     * Find user's google ID by user ID.
+     * Used to check if user is an OAuth user (email change verification).
+     */
+    @Query("SELECT u.googleId FROM User u WHERE u.id = :userId")
+    Optional<String> findGoogleIdByUserId(@Param("userId") Long userId);
+
+    /**
+     * Check if user is an OAuth user (has google_id).
+     * Used for email change verification - OAuth users must re-authenticate with Google.
+     */
+    default boolean isOAuthUser(Long userId) {
+        return findGoogleIdByUserId(userId).isPresent();
+    }
+
+    /**
+     * Check if email exists for a user other than the specified user ID.
+     * Used for email change verification to avoid conflict with current user's email.
+     */
+    @Query("SELECT CASE WHEN COUNT(u) > 0 THEN true ELSE false END FROM User u WHERE u.emailSearch = :emailSearch AND u.id != :userId")
+    boolean existsByEmailSearchAndIdNot(@Param("emailSearch") String emailSearch, @Param("userId") Long userId);
 }
