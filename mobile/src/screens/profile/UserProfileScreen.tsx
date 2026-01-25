@@ -431,8 +431,21 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
         }, 1500);
       }
     } catch (error: any) {
-      const errorMessage = getErrorMessage(error, 'Failed to update email');
-      showToast.error(errorMessage);
+      // Handle auth errors specifically - session expired
+      if (error?.response?.status === 401 || error?.response?.status === 403) {
+        setOAuthConfirmModalVisible(false);
+        showToast.error('Your session expired. Please sign in again.');
+        setTimeout(async () => {
+          await logout();
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
+        }, 1000);
+      } else {
+        const errorMessage = getErrorMessage(error, 'Failed to update email');
+        showToast.error(errorMessage);
+      }
     } finally {
       setOAuthUpdating(false);
     }
