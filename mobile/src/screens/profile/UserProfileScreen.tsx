@@ -432,24 +432,20 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
       }
     } catch (error: any) {
       // Handle auth errors specifically - session expired
-      // Still log out the user since they need to sign in with new Google account anyway
-      setOAuthConfirmModalVisible(false);
-      setEditing(false);
-
       if (error?.response?.status === 401 || error?.response?.status === 403) {
-        showToast.error('Session expired. Please sign in with your new Google account.');
+        setOAuthConfirmModalVisible(false);
+        showToast.error('Your session expired. Please sign in again.');
+        setTimeout(async () => {
+          await logout();
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
+        }, 1000);
       } else {
-        showToast.error('Could not update email. Please sign in with your new Google account.');
+        const errorMessage = getErrorMessage(error, 'Failed to update email');
+        showToast.error(errorMessage);
       }
-
-      // Always logout on error for OAuth email change
-      setTimeout(async () => {
-        await logout();
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Login' }],
-        });
-      }, 2000);
     } finally {
       setOAuthUpdating(false);
     }
