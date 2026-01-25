@@ -138,6 +138,8 @@ export interface UserProfile {
   accessToken?: string;
   refreshToken?: string;
   emailChanged?: boolean;
+  forceLogout?: boolean;
+  isOAuthUser?: boolean;
 }
 
 export interface UpdateProfileRequest {

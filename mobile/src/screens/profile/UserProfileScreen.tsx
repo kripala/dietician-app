@@ -28,6 +28,7 @@ import {
   Save,
   Edit,
   X,
+  LogOut,
 } from 'lucide-react-native';
 import profileService from '../../services/profileService';
 import { getErrorMessage } from '../../utils/errorHandler';
@@ -77,13 +78,14 @@ const initialFormData: FormData = {
 };
 
 export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
-  const { user, updateProfilePictureUrl, updateUserEmail, updateAuthTokens } = useAuth();
+  const { user, updateProfilePictureUrl, updateUserEmail, updateAuthTokens, logout } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [isOAuthUser, setIsOAuthUser] = useState(false);
 
   // Email change verification state
   const [emailChangeModalVisible, setEmailChangeModalVisible] = useState(false);
@@ -93,6 +95,10 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
   const [otpSending, setOtpSending] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [otpResending, setOtpResending] = useState(false);
+
+  // OAuth email change confirmation state
+  const [oauthConfirmModalVisible, setOAuthConfirmModalVisible] = useState(false);
+  const [oauthUpdating, setOAuthUpdating] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -109,6 +115,7 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const data = await profileService.getProfile(user.id);
       setProfile(data);
+      setIsOAuthUser(data.isOAuthUser || false);
 
       // Populate form with existing data - use email from user context
       setFormData({
@@ -259,9 +266,16 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
     const newEmail = formData.email || '';
 
     if (newEmail && newEmail !== originalEmail && newEmail.trim() !== '') {
-      // Email changed - show verification dialog instead of saving directly
+      // Email changed - show appropriate dialog based on user type
       setPendingEmail(newEmail);
-      setEmailChangeModalVisible(true);
+      if (isOAuthUser) {
+        // OAuth user - show logout warning modal
+        setEmailChangeModalVisible(false);
+        setOAuthConfirmModalVisible(true);
+      } else {
+        // Regular user - show OTP verification modal
+        setEmailChangeModalVisible(true);
+      }
       return;
     }
 
@@ -388,6 +402,42 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  // ============================================
+  // OAuth Email Change Handler
+  // ============================================
+
+  const handleOAuthEmailChange = async () => {
+    if (!user) return;
+
+    try {
+      setOAuthUpdating(true);
+      const response = await profileService.updateEmailForOAuthUser(user.id, pendingEmail);
+
+      // Check if backend returned forceLogout flag
+      if (response.forceLogout) {
+        setOAuthConfirmModalVisible(false);
+        setEditing(false);
+
+        // Show logout message
+        showToast.success('Email updated. You will be logged out...');
+
+        // Delay slightly for user to see the message, then logout
+        setTimeout(async () => {
+          await logout();
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
+        }, 1500);
+      }
+    } catch (error: any) {
+      const errorMessage = getErrorMessage(error, 'Failed to update email');
+      showToast.error(errorMessage);
+    } finally {
+      setOAuthUpdating(false);
+    }
+  };
+
   const renderEmailChangeModal = () => {
     return (
       <Modal
@@ -503,6 +553,66 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text style={styles.modalButtonPrimaryText}>Verify</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderOAuthConfirmModal = () => {
+    return (
+      <Modal
+        visible={oauthConfirmModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOAuthConfirmModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <LogOut size={24} color="#F59E0B" />
+              <Text style={styles.modalTitle}>Sign Out Required</Text>
+            </View>
+
+            <View style={styles.modalContent}>
+              <Text style={styles.modalMessage}>
+                You are signed in with Google. After changing your email:
+              </Text>
+
+              <View style={styles.oauthWarningBox}>
+                <LogOut size={20} color="#F59E0B" />
+                <Text style={styles.oauthWarningText}>
+                  You will be signed out of this app
+                </Text>
+              </View>
+
+              <Text style={styles.modalMessage}>
+                Please sign in with your new Google account to continue.
+              </Text>
+              <Text style={styles.modalEmail}>{pendingEmail}</Text>
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSecondary]}
+                onPress={() => setOAuthConfirmModalVisible(false)}
+                disabled={oauthUpdating}
+              >
+                <Text style={styles.modalButtonSecondaryText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonPrimary]}
+                onPress={handleOAuthEmailChange}
+                disabled={oauthUpdating}
+              >
+                {oauthUpdating ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalButtonPrimaryText}>Accept</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -835,6 +945,7 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
       {/* Email Change Verification Modals */}
       {renderEmailChangeModal()}
       {renderOtpModal()}
+      {renderOAuthConfirmModal()}
     </SafeAreaView>
   );
 };
@@ -1078,6 +1189,24 @@ const styles = StyleSheet.create({
     color: '#F59E0B',
     textAlign: 'center',
     marginTop: 8,
+  },
+  oauthWarningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    borderRadius: 8,
+    padding: 16,
+    marginTop: 12,
+    marginBottom: 12,
+  },
+  oauthWarningText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#92400E',
+    flex: 1,
   },
   otpInput: {
     width: '100%',

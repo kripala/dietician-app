@@ -49,22 +49,26 @@ public class UserProfileService {
 
         // Fetch email from database (decrypt it for the response)
         String email = null;
+        Boolean isOAuthUser = false;
         if (profile != null) {
             try {
-                Object result = entityManager.createNativeQuery(
-                        "SELECT email FROM diet.users WHERE id = :userId")
+                Object[] result = (Object[]) entityManager.createNativeQuery(
+                        "SELECT u.email, u.oauth_provider FROM diet.users u WHERE u.id = :userId")
                         .setParameter("userId", userId)
                         .getSingleResult();
-                if (result != null) {
-                    String encryptedEmail = (String) result;
+                if (result != null && result[0] != null) {
+                    String encryptedEmail = (String) result[0];
                     email = encryptionUtil.decrypt(encryptedEmail);
+                }
+                if (result != null && result[1] != null) {
+                    isOAuthUser = true;
                 }
             } catch (Exception e) {
                 log.warn("Could not fetch email for user: {}", userId);
             }
         }
 
-        return mapToResponse(profile, email, null, null, false);
+        return mapToResponse(profile, email, null, null, false, isOAuthUser);
     }
 
     /**
@@ -127,7 +131,7 @@ public class UserProfileService {
         String action = (profile.getId() != null && profile.getCreatedBy() != null) ? "UPDATE" : "INSERT";
         auditLogService.createAuditLog("user_profiles", profile.getId(), action, userId != null ? userId.toString() : "SYSTEM", null);
 
-        return mapToResponse(profile, currentEmail, null, null, false);
+        return mapToResponse(profile, currentEmail, null, null, false, false);
     }
 
     /**
@@ -257,7 +261,7 @@ public class UserProfileService {
      * Uses native query to avoid loading User entity with encrypted email
      */
     private UserProfileDto.ProfileResponse mapToResponse(UserProfile profile, String email,
-                                                         String accessToken, String refreshToken, boolean emailChanged) {
+                                                         String accessToken, String refreshToken, boolean emailChanged, boolean isOAuthUser) {
         if (profile == null) {
             return new UserProfileDto.ProfileResponse();
         }
@@ -310,6 +314,7 @@ public class UserProfileService {
         response.setAccessToken(accessToken);
         response.setRefreshToken(refreshToken);
         response.setEmailChanged(emailChanged);
+        response.setIsOAuthUser(isOAuthUser);
 
         // Build full name
         StringBuilder fullName = new StringBuilder();
@@ -535,5 +540,55 @@ public class UserProfileService {
             "A new verification code has been sent to " + normalizedEmail +
             ". Please enter the code within 5 minutes."
         );
+    }
+
+    /**
+     * Update email for OAuth users (direct update, no OTP required)
+     * User will be logged out and must sign in with new Google account
+     */
+    @Transactional
+    public UserProfileDto.ProfileResponse updateEmailForOAuthUser(Long userId, String newEmail) {
+        // Normalize email
+        String normalizedEmail = EmailHashUtil.normalize(newEmail);
+        String newEmailHash = EmailHashUtil.hash(normalizedEmail);
+
+        // Verify this is an OAuth user
+        boolean isOAuthUser = userRepository.isOAuthUser(userId);
+        if (!isOAuthUser) {
+            throw new RuntimeException("This endpoint is only for OAuth users. Please use the email verification flow instead.");
+        }
+
+        // Check if new email already exists
+        if (userRepository.existsByEmailSearchAndIdNot(newEmailHash, userId)) {
+            throw new RuntimeException("This email is already registered. Please use a different email.");
+        }
+
+        // Get user
+        Optional<User> userOpt = userRepository.findById(userId);
+        if (userOpt.isEmpty()) {
+            throw new RuntimeException("User not found.");
+        }
+
+        User user = userOpt.get();
+
+        // Encrypt new email
+        String encryptedEmail = encryptionUtil.encrypt(normalizedEmail);
+
+        // Update email
+        user.setEmail(encryptedEmail);
+        user.setEmailSearch(newEmailHash);
+        user.setEmailVerified(true);
+        userRepository.save(user);
+
+        log.info("Email updated for OAuth user: {} to: {}", userId, normalizedEmail);
+
+        // Create audit log
+        auditLogService.createAuditLog("users", userId, "EMAIL_CHANGE", normalizedEmail, null);
+
+        // Get profile for response
+        UserProfile profile = profileRepository.findByUserId(userId).orElse(null);
+
+        // Return response with forceLogout flag
+        return mapToResponse(profile, normalizedEmail, null, null, true, true);
     }
 }

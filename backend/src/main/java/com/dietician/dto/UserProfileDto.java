@@ -88,6 +88,8 @@ public class UserProfileDto {
         private String accessToken;
         private String refreshToken;
         private Boolean emailChanged;
+        private Boolean forceLogout;
+        private Boolean isOAuthUser;
     }
 
     /**

@@ -70,6 +70,14 @@ class ProfileService {
   async resendEmailChangeOtp(userId: number, newEmail: string): Promise<MessageResponse> {
     return apiClient.post<MessageResponse>(`/user-profiles/email/resend-otp?userId=${userId}`, { newEmail });
   }
+
+  /**
+   * Update email for OAuth users (direct update, no OTP)
+   * User will be logged out and must sign in with new Google account
+   */
+  async updateEmailForOAuthUser(userId: number, newEmail: string): Promise<UserProfile> {
+    return apiClient.post<UserProfile>(`/user-profiles/email/oauth-update?userId=${userId}`, { newEmail });
+  }
 }
 
 export default new ProfileService();

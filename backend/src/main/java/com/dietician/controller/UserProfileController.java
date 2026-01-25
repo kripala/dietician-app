@@ -103,6 +103,19 @@ public class UserProfileController {
     }
 
     /**
+     * Update email for OAuth users
+     * Direct update without OTP - user will be logged out and must sign in with new Google account
+     */
+    @PostMapping("/email/oauth-update")
+    public ResponseEntity<UserProfileDto.ProfileResponse> updateEmailForOAuthUser(
+            @RequestParam Long userId,
+            @Valid @RequestBody AuthDto.EmailChangeVerificationRequest request) {
+        log.info("Updating email for OAuth user: {} to email: {}", userId, request.getNewEmail());
+        UserProfileDto.ProfileResponse response = profileService.updateEmailForOAuthUser(userId, request.getNewEmail());
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * Handle file size exceeded exception
      */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
