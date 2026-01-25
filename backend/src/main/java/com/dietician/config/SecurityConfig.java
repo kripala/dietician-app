@@ -102,8 +102,10 @@ public class SecurityConfig {
                 redirectUri.append("/auth/oauth2/callback/google");
 
                 // Create a new authorization request with the custom redirect URI
+                // Add prompt=select_account to force Google to show account chooser
                 return OAuth2AuthorizationRequest.from(authorizationRequest)
                         .redirectUri(redirectUri.toString())
+                        .additionalParameters(java.util.Map.of("prompt", "select_account"))
                         .build();
             }
         };
