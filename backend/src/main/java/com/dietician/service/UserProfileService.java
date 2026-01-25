@@ -53,7 +53,7 @@ public class UserProfileService {
         if (profile != null) {
             try {
                 Object[] result = (Object[]) entityManager.createNativeQuery(
-                        "SELECT u.email, u.oauth_provider FROM diet.users u WHERE u.id = :userId")
+                        "SELECT u.email, u.google_id FROM diet.users u WHERE u.id = :userId")
                         .setParameter("userId", userId)
                         .getSingleResult();
                 if (result != null && result[0] != null) {
