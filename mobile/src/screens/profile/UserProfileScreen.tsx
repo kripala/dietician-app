@@ -628,9 +628,17 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
     const baseUrl = apiBaseUrl.replace('/api', '');
 
     // Add cache-busting timestamp to profile photo URL to prevent stale cached images
-    const photoUrl = profile?.profilePhotoUrl
-      ? `${baseUrl}${profile.profilePhotoUrl}?t=${Date.now()}`
-      : null;
+    // For external URLs (like Google profile pictures), use the URL directly
+    let photoUrl = null;
+    if (profile?.profilePhotoUrl) {
+      if (profile.profilePhotoUrl.startsWith('http://') || profile.profilePhotoUrl.startsWith('https://')) {
+        // External URL (Google, etc.) - use directly with cache-busting
+        photoUrl = `${profile.profilePhotoUrl}?t=${Date.now()}`;
+      } else {
+        // Internal URL - prepend base URL
+        photoUrl = `${baseUrl}${profile.profilePhotoUrl}?t=${Date.now()}`;
+      }
+    }
 
     return (
       <View style={styles.profilePhotoContainer}>
