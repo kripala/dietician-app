@@ -13,3 +13,4 @@ mobile/playwright-report/
 
 # Playwright tests
 mobile/tests/*.spec.ts
+INFRASTRUCTURE.md
