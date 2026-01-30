@@ -459,9 +459,30 @@ public class AuthService {
         }
 
         if (googleUser != null) {
-            // User exists with this Google ID
-            return generateAuthResponseFromOAuth(((Number) googleUser[0]).longValue(), email, (String) googleUser[1],
-                    (String) googleUser[2], (String) googleUser[3]);
+            // User exists with this Google ID - update profile picture if it has changed
+            Long userId = ((Number) googleUser[0]).longValue();
+            String currentPictureUrl = (String) googleUser[2];
+
+            // Update profile picture from Google if it has changed
+            if (pictureUrl != null && !pictureUrl.equals(currentPictureUrl)) {
+                entityManager.createNativeQuery(
+                        "UPDATE diet.users SET profile_picture_url = :pictureUrl WHERE id = :userId")
+                        .setParameter("pictureUrl", pictureUrl)
+                        .setParameter("userId", userId)
+                        .executeUpdate();
+
+                // Also update profile photo in user_profiles table
+                entityManager.createNativeQuery(
+                        "UPDATE diet.user_profiles SET profile_photo_url = :pictureUrl WHERE user_id = :userId")
+                        .setParameter("pictureUrl", pictureUrl)
+                        .setParameter("userId", userId)
+                        .executeUpdate();
+
+                log.info("Updated profile picture for OAuth user: {} from Google", email);
+            }
+
+            return generateAuthResponseFromOAuth(userId, email, (String) googleUser[1],
+                    pictureUrl != null ? pictureUrl : (String) googleUser[2], (String) googleUser[3]);
         }
 
         // Check if user exists by email (email_search)
@@ -476,13 +497,29 @@ public class AuthService {
         }
 
         if (existingUserId != null) {
-            // Link Google account to existing user
-            entityManager.createNativeQuery(
-                    "UPDATE diet.users SET google_id = :googleId, email_verified = true " +
-                    "WHERE id = :userId")
+            // Link Google account to existing user - also update profile picture if provided
+            String updateQuery = "UPDATE diet.users SET google_id = :googleId, email_verified = true";
+            if (pictureUrl != null) {
+                updateQuery += ", profile_picture_url = :pictureUrl";
+            }
+            updateQuery += " WHERE id = :userId";
+
+            var nativeQuery = entityManager.createNativeQuery(updateQuery)
                     .setParameter("googleId", googleId)
-                    .setParameter("userId", existingUserId)
-                    .executeUpdate();
+                    .setParameter("userId", existingUserId);
+            if (pictureUrl != null) {
+                nativeQuery.setParameter("pictureUrl", pictureUrl);
+            }
+            nativeQuery.executeUpdate();
+
+            // Also update profile photo in user_profiles table if picture URL is provided
+            if (pictureUrl != null) {
+                entityManager.createNativeQuery(
+                        "UPDATE diet.user_profiles SET profile_photo_url = :pictureUrl WHERE user_id = :userId")
+                        .setParameter("pictureUrl", pictureUrl)
+                        .setParameter("userId", existingUserId)
+                        .executeUpdate();
+            }
 
             // Get user details
             Object[] user = (Object[]) entityManager.createNativeQuery(
@@ -492,7 +529,8 @@ public class AuthService {
                     .getSingleResult();
 
             log.info("OAuth login - linked Google account to existing user: {}", email);
-            return generateAuthResponseFromOAuth(existingUserId, email, (String) user[0], (String) user[1], (String) user[2]);
+            return generateAuthResponseFromOAuth(existingUserId, email, (String) user[0],
+                    pictureUrl != null ? pictureUrl : (String) user[1], (String) user[2]);
         }
 
         // Create new user via native query

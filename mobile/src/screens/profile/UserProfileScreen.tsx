@@ -266,10 +266,14 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
     const newEmail = formData.email || '';
 
     if (newEmail && newEmail !== originalEmail && newEmail.trim() !== '') {
-      // Email changed - show appropriate dialog based on user type
+      // Email changed - save demographic data first, then show appropriate dialog based on user type
       setPendingEmail(newEmail);
+
+      // For OAuth users, save demographic data FIRST (without email), then show email change modal
       if (isOAuthUser) {
-        // OAuth user - show logout warning modal
+        // Save demographic data before email change
+        await saveProfileDataOnly();
+        // Show logout warning modal
         setEmailChangeModalVisible(false);
         setOAuthConfirmModalVisible(true);
       } else {
@@ -281,6 +285,29 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
 
     // No email change - proceed with normal save
     await saveProfile();
+  };
+
+  // Save only demographic data (not email) - used before OAuth email change
+  const saveProfileDataOnly = async () => {
+    try {
+      await profileService.updateProfile(user!.id, {
+        firstName: formData.firstName,
+        middleName: formData.middleName || undefined,
+        lastName: formData.lastName,
+        dateOfBirth: formData.dateOfBirth,
+        gender: formData.gender as 'MALE' | 'FEMALE' | 'OTHER',
+        countryCode: formData.countryCode,
+        mobileNumber: formData.mobileNumber,
+        country: formData.country || undefined,
+        state: formData.state || undefined,
+        addressLine: formData.addressLine || undefined,
+        pincode: formData.pincode || undefined,
+      });
+    } catch (error: any) {
+      const errorMessage = getErrorMessage(error, 'Failed to update profile');
+      showToast.error(errorMessage);
+      throw error; // Re-throw to prevent email change if profile save fails
+    }
   };
 
   const saveProfile = async () => {
