@@ -314,6 +314,7 @@ public class UserProfileService {
         response.setAccessToken(accessToken);
         response.setRefreshToken(refreshToken);
         response.setEmailChanged(emailChanged);
+        response.setForceLogout(emailChanged && isOAuthUser);
         response.setIsOAuthUser(isOAuthUser);
 
         // Build full name
