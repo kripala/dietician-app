@@ -29,6 +29,7 @@ import {
   Edit,
   X,
   LogOut,
+  Info,
 } from 'lucide-react-native';
 import profileService from '../../services/profileService';
 import { getErrorMessage } from '../../utils/errorHandler';
@@ -99,6 +100,10 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
   // OAuth email change confirmation state
   const [oauthConfirmModalVisible, setOAuthConfirmModalVisible] = useState(false);
   const [oauthUpdating, setOAuthUpdating] = useState(false);
+
+  // "Save other details" modal state - shown when user cancels email change
+  const [saveOtherDetailsModalVisible, setSaveOtherDetailsModalVisible] = useState(false);
+  const [savingOtherDetails, setSavingOtherDetails] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -266,14 +271,11 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
     const newEmail = formData.email || '';
 
     if (newEmail && newEmail !== originalEmail && newEmail.trim() !== '') {
-      // Email changed - save demographic data first, then show appropriate dialog based on user type
+      // Email changed - show appropriate dialog based on user type (don't save yet)
       setPendingEmail(newEmail);
 
-      // For OAuth users, save demographic data FIRST (without email), then show email change modal
       if (isOAuthUser) {
-        // Save demographic data before email change
-        await saveProfileDataOnly();
-        // Show logout warning modal
+        // OAuth user - show logout warning modal
         setEmailChangeModalVisible(false);
         setOAuthConfirmModalVisible(true);
       } else {
@@ -438,6 +440,10 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
 
     try {
       setOAuthUpdating(true);
+
+      // First save demographic data, then update email
+      await saveProfileDataOnly();
+
       const response = await profileService.updateEmailForOAuthUser(user.id, pendingEmail);
 
       // Check if backend returned forceLogout flag
@@ -476,6 +482,41 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
     } finally {
       setOAuthUpdating(false);
     }
+  };
+
+  // Handle saving other details without changing email (when user cancels email change)
+  const handleSaveOtherDetailsOnly = async () => {
+    try {
+      setSavingOtherDetails(true);
+
+      await saveProfileDataOnly();
+
+      // Clear the pending email (revert to original)
+      setFormData((prev: FormData) => ({
+        ...prev,
+        email: user?.email || '',
+      }));
+
+      setSaveOtherDetailsModalVisible(false);
+      setEditing(false);
+
+      // Reload profile to show updated data
+      await loadProfile();
+
+      showToast.success('Profile updated successfully (email unchanged)');
+    } catch (error: any) {
+      const errorMessage = getErrorMessage(error, 'Failed to update profile');
+      showToast.error(errorMessage);
+    } finally {
+      setSavingOtherDetails(false);
+    }
+  };
+
+  // Handle cancel button on OAuth email change modal
+  const handleOAuthEmailChangeCancel = () => {
+    setOAuthConfirmModalVisible(false);
+    // Show modal asking if they want to save other details
+    setSaveOtherDetailsModalVisible(true);
   };
 
   const renderEmailChangeModal = () => {
@@ -638,7 +679,7 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonSecondary]}
-                onPress={() => setOAuthConfirmModalVisible(false)}
+                onPress={handleOAuthEmailChangeCancel}
                 disabled={oauthUpdating}
               >
                 <Text style={styles.modalButtonSecondaryText}>Cancel</Text>
@@ -653,6 +694,59 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text style={styles.modalButtonPrimaryText}>Accept</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderSaveOtherDetailsModal = () => {
+    return (
+      <Modal
+        visible={saveOtherDetailsModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSaveOtherDetailsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Info size={24} color="#3B82F6" />
+              <Text style={styles.modalTitle}>Save Other Details?</Text>
+            </View>
+
+            <View style={styles.modalContent}>
+              <Text style={styles.modalMessage}>
+                You cancelled the email change. Would you like to save your other updates (name, phone, address, etc.) without changing your email?
+              </Text>
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSecondary]}
+                onPress={() => {
+                  setSaveOtherDetailsModalVisible(false);
+                  setEditing(false);
+                  // Revert form data to original
+                  loadProfile();
+                }}
+                disabled={savingOtherDetails}
+              >
+                <Text style={styles.modalButtonSecondaryText}>No, Discard</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonPrimary]}
+                onPress={handleSaveOtherDetailsOnly}
+                disabled={savingOtherDetails}
+              >
+                {savingOtherDetails ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalButtonPrimaryText}>Yes, Save</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -994,6 +1088,7 @@ export const UserProfileScreen: React.FC<Props> = ({ navigation }) => {
       {renderEmailChangeModal()}
       {renderOtpModal()}
       {renderOAuthConfirmModal()}
+      {renderSaveOtherDetailsModal()}
     </SafeAreaView>
   );
 };
